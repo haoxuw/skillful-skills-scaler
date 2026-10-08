@@ -87,6 +87,15 @@ def cmd_source_add(args) -> int:
     return 0
 
 
+def cmd_source_remove(args) -> int:
+    m = Manifest.load(_root(args))
+    res = sources.remove(m, args.name, force=args.force)
+    for name in res["skills_dropped"]:
+        links.unlink_skill(m, name)
+    _out(args, res)
+    return 0
+
+
 def cmd_source_list(args) -> int:
     m = Manifest.load(_root(args))
     _out(args, [{**s.to_dict(), "available_skills": sources.list_skill_dirs(m, s)} for s in m.sources])
@@ -240,6 +249,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--skills-root", default="skills"); a.add_argument("--no-sync", action="store_true")
     a.set_defaults(fn=cmd_source_add)
     ls = ss.add_parser("list"); ls.set_defaults(fn=cmd_source_list)
+    rm = ss.add_parser("remove"); rm.add_argument("name"); rm.add_argument("--force", action="store_true", help="also drop skills imported from it")
+    rm.set_defaults(fn=cmd_source_remove)
 
     s = sub.add_parser("sync", help="refresh replicas and report staleness"); s.add_argument("source", nargs="?"); s.set_defaults(fn=cmd_sync)
 

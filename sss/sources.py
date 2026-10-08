@@ -29,6 +29,26 @@ def add(m: Manifest, name: str, url: str | None, ref: str, mode: str, skills_roo
     return src
 
 
+def remove(m: Manifest, name: str, force: bool = False) -> dict:
+    src = m.source(name)
+    users = [k.name for k in m.skills if k.source == name]
+    if users and not force:
+        raise ManifestError(f"source {name} is used by: {', '.join(users)}. Deprecate them first, or pass --force.")
+    m.sources = [s for s in m.sources if s.name != name]
+    m.skills = [k for k in m.skills if k.source != name]
+    m.save()
+    removed = []
+    if src.mode == "submodule":
+        subprocess.run(["git", "submodule", "deinit", "-f", "--", src.path], cwd=str(m.root), capture_output=True, text=True)
+        subprocess.run(["git", "rm", "-q", "-f", "--", src.path], cwd=str(m.root), capture_output=True, text=True)
+        shutil.rmtree(m.root / ".git" / "modules" / src.path, ignore_errors=True)
+        removed.append(src.path)
+    elif src.mode == "copy" and (m.root / src.path).exists():
+        shutil.rmtree(m.root / src.path)
+        removed.append(src.path)
+    return {"source": name, "removed": removed, "skills_dropped": users if force else []}
+
+
 def sync(m: Manifest, src: Source) -> dict:
     """Refresh the replica. Returns {"changed": bool, "old": sha, "new": sha}."""
     old = src.synced_commit
@@ -38,9 +58,10 @@ def sync(m: Manifest, src: Source) -> dict:
         new = _sync_submodule(m, src)
     else:
         new = _sync_copy(m, src)
-    src.synced_commit = new
-    src.synced_at = now_iso()
-    m.save()
+    if new != old:
+        src.synced_commit = new
+        src.synced_at = now_iso()
+        m.save()
     return {"source": src.name, "changed": new != old, "old": old, "new": new}
 
 

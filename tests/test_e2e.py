@@ -208,6 +208,14 @@ def test_full_loop(source: Path, target: Path):
     rc, st = run(target, "status")
     assert [s["skill"] for s in st] == ["omelette"]
 
+    # a source in use cannot be removed without --force; with it, replica and skills go
+    rc, res = run(target, "source", "remove", "cookbook")
+    assert rc == 2
+    rc, res = run(target, "source", "remove", "cookbook", "--force")
+    assert rc == 0 and res["skills_dropped"] == ["omelette"]
+    assert not (target / ".sss" / "sources" / "cookbook").exists()
+    assert not (target / ".agents" / "skills" / "omelette").exists()
+
 
 def test_local_source(target: Path):
     assert run(target, "init")[0] == 0
