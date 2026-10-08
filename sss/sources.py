@@ -44,6 +44,19 @@ def sync(m: Manifest, src: Source) -> dict:
     return {"source": src.name, "changed": new != old, "old": old, "new": new}
 
 
+def _ignore_for_copy(dirpath: str, names: list[str]) -> set[str]:
+    """Skip VCS and dependency folders, and symlinks whose target does not exist.
+    (shutil's ignore_dangling_symlinks resolves relative targets against the cwd, so
+    it misses links like `.agent/skills -> ../skills`.)"""
+    skip = {".git", "node_modules"}
+    out = {n for n in names if n in skip}
+    for n in names:
+        full = Path(dirpath) / n
+        if full.is_symlink() and not full.exists():
+            out.add(n)
+    return out
+
+
 def _sync_copy(m: Manifest, src: Source) -> str:
     dest = m.root / src.path
     with tempfile.TemporaryDirectory(prefix="sss-src-") as tmp:
@@ -62,7 +75,7 @@ def _sync_copy(m: Manifest, src: Source) -> str:
         if dest.exists():
             shutil.rmtree(dest)
         target = dest / root if root and root != "." else dest
-        shutil.copytree(subtree, target, symlinks=False, ignore=shutil.ignore_patterns(".git", "node_modules"), ignore_dangling_symlinks=True)
+        shutil.copytree(subtree, target, symlinks=False, ignore=_ignore_for_copy)
         for lic in LICENSE_NAMES:
             if (clone / lic).is_file():
                 shutil.copy2(clone / lic, dest / lic)
