@@ -56,4 +56,16 @@ The final Skill01 becomes:
 
 ## Solution
 
-We want to position this repo as a submodule for other repos to clone. During setup, we will put symlinks to the submodule, and enable Claude commands to evolve the parent repo to support `update`, `reorganize`, etc.
+This repo is added to other repos as a git submodule at `.sss/tool`. Running `sss init` creates `.sss/` in the parent repo and symlinks the SSS command skills into the skill directories that Claude Code, Codex and Gemini CLI each read, so the parent repo gains `update-skills`, `reorganize-skills` and `deprecate-skills` in every runtime.
+
+```bash
+git submodule add https://github.com/haoxuw/skillful-skills-scaler .sss/tool
+python3 .sss/tool/sss.py init
+python3 .sss/tool/sss.py source add cookbook https://github.com/org/cookbook --skills-root skills
+python3 .sss/tool/sss.py import cookbook/omelette --patch "House omelette"
+```
+
+The deterministic steps (sync, staleness, inventory, deprecate) are a small Python CLI. The model steps (applying a patch, judging duplicates and conflicts) are done by whichever agent the user is already in, guided by the command skills.
+
+- [docs/integration.md](docs/integration.md): what SSS puts into a repo and how the commands work against it.
+- [docs/report-schema.md](docs/report-schema.md): the shape of the reorganize report.

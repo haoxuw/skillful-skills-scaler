@@ -1,28 +1,33 @@
 # Integrating SSS into a repo
 
-This document defines what SSS puts into a target repo and how the pieces
-relate. "Target repo" means any repo that wants to use skills managed by
-SSS. SSS itself is generic and does not care what the target repo does.
+This document defines what SSS puts into a target repo, how the pieces relate,
+and how the three commands work against them. "Target repo" means any repo that
+wants to use skills managed by SSS. SSS is generic: it does not care what the
+target repo does, and it works with Claude Code, Codex and Gemini CLI.
 
 ## For non-technical readers
 
-Think of a cookbook you borrowed from a friend. You want to keep your own
-copy, make a few changes to some recipes, and still pick up your friend's
-corrections when they update their book.
+Think of the source of truth as a cookbook, and the repo as a kitchen. The
+kitchen wants its own copy of the recipes, a few local changes to some of them,
+and a way to pick up the cookbook's corrections later without losing those
+changes.
 
-SSS keeps four things in your repo:
+SSS keeps four things in the kitchen:
 
-1. An exact copy of your friend's cookbook, untouched.
-2. Your notes on what to change, written per recipe, in plain language.
-3. A table of contents saying where each recipe came from, when you last
-   copied it, and which notes apply to it.
-4. The finished recipes you actually cook from, produced by applying your
-   notes to your friend's recipes.
+1. An exact copy of the cookbook, untouched.
+2. The kitchen's notes on what to change, written per recipe, in plain language.
+3. A table of contents saying where each recipe came from, when it was last
+   copied, and which notes apply to it.
+4. The finished recipes the kitchen actually cooks from, produced by applying
+   the notes to the cookbook's recipes.
 
-You only ever edit 2 and 3. SSS refreshes 1 from your friend and rebuilds 4
+People only ever edit 2 and 3. SSS refreshes 1 from the cookbook and rebuilds 4
 whenever 1 or 2 changes. The finished recipes in 4 are saved in the repo so
-anyone can read them without running anything, but nobody edits them by
-hand, because the next rebuild would overwrite the edit.
+anyone can read them without running anything, but nobody edits them by hand,
+because the next rebuild would overwrite the edit.
+
+If the cookbook changes a recipe so much that a note no longer makes sense, SSS
+does not guess. It marks that recipe as needing a person's attention.
 
 ## The four parts
 
@@ -30,137 +35,233 @@ hand, because the next rebuild would overwrite the edit.
 | --- | --- | --- | --- |
 | 1. Source replica | Letter-for-letter copy of the source of truth | SSS, on sync | Never |
 | 2. Semantic patches | Local, high-level change requests per skill | People | Yes |
-| 3. Manifest | Where each skill came from, when it was synced, which patches apply | People and SSS | Yes, for the parts people own |
+| 3. Manifest | Where each skill came from, when it was synced, which patches apply | People and SSS | Yes, for the fields people own |
 | 4. Generated skills | The skills the repo actually uses | SSS, on generate | Never |
 
-Part 4 is committed to the repo. It is derived, so it must be regenerated
-whenever part 1 or part 2 changes. A generated skill that is older than the
-last change to its source or its patches is stale.
+Part 4 is committed to the repo. It is derived, so it is regenerated whenever
+part 1 or part 2 changes for that skill.
+
+## Installation
+
+SSS is added to the target repo as a git submodule at a fixed path, then
+initialised. The fixed path matters because the command skills refer to it.
+
+```bash
+git submodule add https://github.com/haoxuw/skillful-skills-scaler .sss/tool
+python3 .sss/tool/sss.py init
+```
+
+`init` creates `.sss/manifest.yaml`, the `patches`, `sources` and `local`
+folders, and links SSS's three command skills into the skill directories that
+each agent runtime reads:
+
+| Runtime | Reads | How SSS reaches it |
+| --- | --- | --- |
+| Codex CLI | `.agents/skills/` | writes there directly (`output_dir`) |
+| Gemini CLI | `.agents/skills/` or `.gemini/skills/` | same directory; workspace must be trusted |
+| Claude Code | `.claude/skills/` only | a symlink per skill into `.claude/skills/` (`mirror_dirs`) |
+
+All three runtimes follow symlinks. On a file system without symlinks, run
+`init --copy` to copy instead, and re-run `sss links --copy` after each
+generate. The command skills then appear as `/update-skills`,
+`/reorganize-skills` and `/deprecate-skills` in Claude Code, as
+`$update-skills` and friends in Codex, and by description in Gemini. Saying
+"update skills using sss" works everywhere.
+
+SSS needs Python 3.12 or newer and PyYAML. Nothing else.
 
 ## Layout in the target repo
 
 ```
 .sss/
+  tool/                      # SSS itself, as a submodule
   manifest.yaml              # part 3
+  decisions.yaml             # answers to reorganize findings
   sources/
     <source-name>/           # part 1, one folder per source
+      LICENSE                # carried along from the source
+      <skills_root>/<skill>/
+  local/
+    <skill>/                 # skills authored in this repo, treated as a source
   patches/
     <skill-name>.md          # part 2, one file per patched skill
-<output_dir>/
-  <skill-name>/              # part 4, path set in the manifest
-    SKILL.md
+.agents/skills/              # part 4, output_dir (configurable)
+  <skill-name>/SKILL.md
+  update-skills -> ../../.sss/tool/skills/update-skills
+.claude/skills/              # mirror_dirs: one symlink per entry above
 ```
 
-The source replica under `.sss/sources/` can be either a plain copy or a git
-submodule. The manifest records which. Both give the same guarantee: the
-files match the source commit exactly.
+Only the `skills_root` subtree of a source is replicated, not the whole source
+repo, plus its LICENSE and NOTICE files. The replica can be a plain copy or a
+git submodule. The manifest records which. Both give the same guarantee: the
+files match the recorded source commit exactly.
 
-The output directory is whatever the target repo's agent runtime reads
-from. For Claude Code that is `.claude/skills`. SSS does not assume a
-runtime, it only writes where the manifest says.
+Skill scanners that walk the whole repo would find the replica as a second copy
+of every skill. SSS's own inventory excludes `.sss/`, and the replica folder
+carries a `.sss-replica` marker file. Tell other scanners to ignore `.sss/`.
 
 ## The manifest
 
 ```yaml
 schema_version: 1
-output_dir: .claude/skills
+output_dir: .agents/skills
+mirror_dirs: [.claude/skills]
 
 sources:
-  - name: upstream-a
-    url: https://github.com/org/repo
+  - name: cookbook
+    url: https://github.com/org/cookbook
     ref: main
-    mode: copy            # or: submodule
-    path: .sss/sources/upstream-a
+    mode: copy            # copy | submodule | local
+    path: .sss/sources/cookbook
     skills_root: skills   # folder inside the source where skills live
-    synced_commit: 3f9a2c1
+    synced_commit: 3f9a2c1e...
     synced_at: 2026-10-08T14:30:00Z
 
 skills:
   - name: omelette
-    from: upstream-a/omelette
-    patches:
-      - .sss/patches/omelette-kage.md
+    from: cookbook/omelette
+    patches: [.sss/patches/omelette.md]
+    status: ok            # pending | ok | stale | conflict | failed
     generated_at: 2026-10-08T14:31:00Z
 
-  - name: cluster-lifecycle
-    from: upstream-a/cluster-lifecycle
+  - name: salad
+    from: cookbook/salad
     patches: []           # pure copy, no local changes
-    generated_at: 2026-10-08T14:31:00Z
+    status: ok
 ```
 
 Who owns which fields:
 
-- People write `output_dir`, each source's `name`, `url`, `ref`, `mode`,
-  `path`, `skills_root`, and each skill's `name`, `from`, `patches`.
-- SSS writes `synced_commit`, `synced_at`, and `generated_at`. It never
-  changes the fields people own.
+- People write `output_dir`, `mirror_dirs`, each source's `name`, `url`, `ref`,
+  `mode`, `path`, `skills_root`, and each skill's `name`, `from`, `patches`.
+- SSS writes `synced_commit`, `synced_at`, `generated_at`, `status` and
+  `conflict`. It never changes the fields people own.
 
-A skill listed with an empty `patches` list is still generated, as a
-straight copy, so that part 4 is always the single place the repo reads
-from.
+A skill with an empty `patches` list is still generated, as a straight copy, so
+that part 4 is always the single place the repo reads from. The generated
+skill's `name` is set to the manifest name, so two sources can both offer a
+`cluster-lifecycle` and the repo can import both under different names.
+
+Skills authored in the repo itself live under `.sss/local/<skill>/` and are
+listed with a source of `mode: local`. They flow through the same generate step,
+which means reorganize can treat local and imported skills alike.
 
 ## Semantic patches
 
-A patch is a markdown file with a small front matter block and a body
-written for a model to read.
+A patch is a markdown file with a small front matter block and a body written
+for a model to read.
 
 ```markdown
 ---
 target: omelette
-intent: Make the Kage flavored variant.
+intent: Make the house omelette.
 checks:
   - The final skill says three eggs, not two.
-  - The final skill mentions bell pepper in the ingredients.
+  - contains: "three eggs"
+  - not_contains: "two eggs"
+  - file_exists: pan.md
 ---
 
-Add one more egg and add bell pepper to the ingredient list. Keep every
-other step exactly as the source has it.
+Add one more egg and add bell pepper to the ingredient list. Keep every other
+step exactly as the source has it.
 ```
 
-`checks` are plain sentences. After generation, SSS asks a model whether
-each check holds against the generated skill, and fails the generation if
-any does not. This is what keeps a model-driven step honest.
+Checks come in two kinds. A plain sentence is judged by the model after
+generation. A `contains`, `not_contains`, `regex` or `file_exists` entry is
+checked by SSS itself when the skill is finalized, and a failure blocks the
+skill from being stamped as generated. Use the deterministic kind wherever the
+expectation can be written as text.
 
 ## When part 4 gets rebuilt
 
-Part 4 is rebuilt for a skill when either of these is true:
+Staleness is decided from the inputs, using git history, and never by
+regenerating. For each skill, SSS finds the last commit that touched its output
+folder, then asks whether any later commit touched its inputs: the replica
+path for that skill and its patch files. Uncommitted changes to inputs count
+too. In submodule mode the replica path is diffed inside the submodule between
+the commit recorded in the skill's provenance and the current pointer, so a
+pointer bump only marks the skills whose files actually changed.
 
-- The source replica for that skill changed since the skill was last
-  generated. SSS finds this with `git log` on the replica path, compared
-  against the skill's `generated_at` commit.
-- Any patch listed for that skill changed since it was last generated. Same
-  check, on the patch files.
+The result is one of five states:
 
-If neither changed, the skill is left exactly as committed. A `sync` with no
-upstream changes and no patch edits produces no diff.
+| Status | Meaning | What happens next |
+| --- | --- | --- |
+| `pending` | Imported but never generated | generate or plan |
+| `ok` | Output is newer than every input | nothing |
+| `stale` | An input changed after the output was made | generate or plan |
+| `conflict` | A patch no longer applies to the source, or the source skill vanished | a person decides |
+| `failed` | A deterministic check failed at finalize | fix the output and finalize again |
 
-A CI check can enforce this by running generate and failing if the working
-tree is dirty afterwards, the same way generated code is checked today.
+A sync with no upstream changes and no patch edits produces no diff.
+
+### The CI gate
+
+```bash
+python3 .sss/tool/sss.py status --fail-on-stale
+```
+
+This exits non-zero if any skill is anything other than `ok`. It reads git
+history only. It never calls a model, so it needs no credentials and is
+deterministic. Do not try to enforce freshness by regenerating in CI: the model
+step is not byte-for-byte reproducible, so that check would always fail.
+
+## How generation works
+
+Unpatched skills are copied from the replica, their `name` is set, and a
+provenance block is added. That step is deterministic and runs anywhere.
+
+Patched skills are produced by the agent, inside whatever session the user is
+in. `sss plan <skill>` gives the agent the new source, the patches, the
+previous output, and a copy of the previous source when one exists. The agent
+is told to diff the previous source against the previous output, re-apply those
+same edits to the new source, and fall back to the patch's intent only where an
+old edit no longer fits. That keeps the diff between generations small. If the
+source no longer contains what a patch assumes, the agent records a conflict
+instead of guessing. `sss finalize <skill>` then runs the deterministic checks,
+stamps provenance, and marks the skill `ok`.
 
 ## Provenance in generated skills
 
-Every generated SKILL.md carries its origin in front matter, so a reader
-who opens it directly knows not to edit it:
+Every generated SKILL.md carries its origin inside the portable `metadata`
+field, so a reader who opens it directly knows not to edit it:
 
 ```yaml
 ---
 name: omelette
 description: ...
-sss:
-  source: upstream-a
-  source_commit: 3f9a2c1
-  source_path: skills/omelette
-  patches: [omelette-kage.md]
-  generated_at: 2026-10-08T14:31:00Z
+metadata:
+  sss:
+    source: cookbook
+    source_commit: 3f9a2c1e...
+    source_path: .sss/sources/cookbook/skills/omelette
+    patches: [.sss/patches/omelette.md]
+    generated_at: 2026-10-08T14:31:00Z
+    model: <model id, for patched skills>
+    note: Generated by SSS. Do not edit. Change the patch or the source instead.
 ---
 ```
 
 ## Commands against this layout
 
-| Command | Reads | Writes |
+| CLI command | Reads | Writes |
 | --- | --- | --- |
-| `update` import | manifest | adds a source replica, adds skill entries |
-| `update` sync | manifest, source | refreshes replica, updates `synced_*`, regenerates stale skills |
-| `update` patch | manifest, patches | regenerates the patched skill |
-| `reorganize` | everything | report, and a PR editing patches, manifest, and generated skills |
-| `deprecate` | manifest | removes the skill entry, its patches, its generated folder, and references to it |
+| `init` | nothing | manifest, folders, links for the command skills |
+| `source add` | manifest | source entry, replica, `synced_*` |
+| `sync` | manifest, sources | refreshed replicas, `synced_*`, then prints status |
+| `import` | manifest, replica | skill entry; copies it if unpatched, or creates a patch template |
+| `status` | manifest, git history | nothing; `--fail-on-stale` for CI |
+| `generate` | replica | unpatched outputs, provenance, links |
+| `plan` | replica, patches, previous output | nothing; prints the agent's job |
+| `finalize` | agent-written output, patches | provenance, `status`, links |
+| `conflict` | nothing | `status: conflict` with a reason |
+| `patch new` | manifest | a patch template, `status: stale` |
+| `inventory` | the whole repo except `.sss/` and mirrors | nothing; prints JSON |
+| `report` | findings JSON | the markdown report |
+| `deprecate` | manifest | removes entry, patches, output, links; prints references |
+
+The three command skills, `update-skills`, `reorganize-skills` and
+`deprecate-skills`, tell the agent which of these to run and what judgement to
+apply between them. The README's command numbering maps as follows: 1.1 is
+`source add` plus `import`, 1.2 is `import --patch` or `patch new` plus `plan`
+and `finalize`, 1.3 is `sync` followed by the same, 2.x is the
+`reorganize-skills` skill over `inventory` and `report`, and 3.1 is `deprecate`.
