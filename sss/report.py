@@ -28,9 +28,31 @@ QUESTIONS = [
 ]
 
 
-def finding_id(kind: str, skills: list[str]) -> str:
-    h = hashlib.sha256((kind + "|" + "|".join(sorted(skills))).encode()).hexdigest()[:6]
+def finding_id(kind: str, skills: list[str], subject: str = "") -> str:
+    """Stable across runs: type + sorted skills + subject (the thing missing, the
+    broken path, ...) so two findings about the same skill do not collide."""
+    h = hashlib.sha256((kind + "|" + "|".join(sorted(skills)) + "|" + subject).encode()).hexdigest()[:6]
     return f"{PREFIX.get(kind, 'f')}-{h}"
+
+
+def _subject(f: dict) -> str:
+    if f.get("subject"):
+        return str(f["subject"])
+    a = f.get("proposed_action") or {}
+    if f.get("type") in ("missing_dependency", "broken_reference"):
+        frm = a.get("from")
+        if frm:
+            return ",".join(frm) if isinstance(frm, list) else str(frm)
+        ev = f.get("evidence") or []
+        return str(ev[0].get("quote", "")) if ev else ""
+    return ""
+
+
+def _action_key(f: dict) -> tuple:
+    a = f["proposed_action"]
+    frm = a.get("from")
+    frm = tuple(frm) if isinstance(frm, list) else (str(frm),) if frm else ()
+    return (a.get("verb", "none"), frm, a.get("into", ""))
 
 
 def normalize(data: dict) -> dict:
@@ -38,8 +60,8 @@ def normalize(data: dict) -> dict:
     findings = data.setdefault("findings", [])
     for f in findings:
         f.setdefault("skills", [])
-        f["id"] = f.get("id") or finding_id(f.get("type", "f"), f["skills"])
         f.setdefault("evidence", [])
+        f["id"] = f.get("id") or finding_id(f.get("type", "f"), f["skills"], _subject(f))
         f.setdefault("confidence", "unsure")
         f.setdefault("options", CONFLICT_OPTIONS if f.get("type") == "conflict" else [])
         action = f.setdefault("proposed_action", {"verb": "none"})
@@ -53,8 +75,10 @@ def normalize(data: dict) -> dict:
         "skills_found": len(inv),
         "sources": len({s.get("source", "local") for s in inv}),
         **counts,
-        "actions_proposed": sum(1 for f in findings if f["proposed_action"].get("verb", "none") != "none"),
-        "decisions_needed": sum(1 for f in findings if f["decision_needed"]),
+        "actions_proposed": len({_action_key(f) for f in findings if f["proposed_action"].get("verb", "none") != "none"}),
+        "decisions_needed": len({_action_key(f) if f["proposed_action"].get("verb", "none") != "none" else ("none", (f["id"],), "")
+                                 for f in findings if f["decision_needed"]}),
+        "findings_total": len(findings),
     }
     return data
 
@@ -81,7 +105,8 @@ def render(data: dict) -> str:
     for types, q in QUESTIONS:
         n = len(_by(data, types))
         L.append(f"| {q} | {'No' if n == 0 else f'Yes, {n}'} |")
-    L += [f"| Actions we can take without asking | {s['actions_proposed'] - s['decisions_needed'] if s['actions_proposed'] >= s['decisions_needed'] else 0} |",
+    safe = len({_action_key(f) for f in data["findings"] if f["proposed_action"].get("verb", "none") != "none" and not f["decision_needed"]})
+    L += [f"| Actions we can take without asking | {safe} |",
           f"| Decisions needed from you | {s['decisions_needed']} |", ""]
 
     # 2. Inventory
@@ -120,10 +145,11 @@ def render(data: dict) -> str:
         _nothing(L)
     if ready:
         L += ["These are safe and the pull request applies them:", ""]
-        L += [f"- {_action_line(f)}" for f in ready] + [""]
+        L += [f"- {line}" for line in _grouped_actions(ready)] + [""]
     if waiting:
         L += ["### Waiting on your decision", ""]
-        L += [f"- {_action_line(f)}" for f in waiting] + [""]
+        L += ["One line per action. Several findings can point at the same action; all their IDs are listed.", ""]
+        L += [f"- {line}" for line in _grouped_actions(waiting)] + [""]
 
     # 9. Left alone
     L += ["## 9. What we left alone", ""]
@@ -159,16 +185,24 @@ def _finding_block(f: dict, show_options: bool) -> list[str]:
     return L
 
 
-def _action_line(f: dict) -> str:
-    a = f["proposed_action"]
-    parts = [VERBS.get(a.get("verb", "none"), a.get("verb"))]
-    if a.get("from"):
-        parts.append(", ".join(a["from"]) if isinstance(a["from"], list) else str(a["from"]))
-    if a.get("into"):
-        parts.append(f"into {a['into']}")
-    if a.get("detail"):
-        parts.append(f"({a['detail']})")
-    return " ".join(parts) + f" [{f['id']}]"
+def _grouped_actions(findings: list[dict]) -> list[str]:
+    groups: dict[tuple, list[dict]] = {}
+    for f in findings:
+        groups.setdefault(_action_key(f), []).append(f)
+    lines = []
+    for key, fs in groups.items():
+        a = fs[0]["proposed_action"]
+        parts = [VERBS.get(a.get("verb", "none"), a.get("verb"))]
+        if a.get("from"):
+            parts.append(", ".join(a["from"]) if isinstance(a["from"], list) else str(a["from"]))
+        if a.get("into"):
+            parts.append(f"into {a['into']}")
+        details = sorted({x["proposed_action"].get("detail") for x in fs if x["proposed_action"].get("detail")})
+        if details:
+            parts.append("(" + "; ".join(details) + ")")
+        ids = ", ".join(x["id"] for x in fs)
+        lines.append(" ".join(parts) + f" [{ids}]")
+    return lines
 
 
 def render_file(json_path: Path, md_path: Path) -> None:

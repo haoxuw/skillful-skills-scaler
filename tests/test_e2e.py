@@ -258,7 +258,8 @@ def test_report_render(tmp_path: Path):
         assert f"## {i}. " in md
     assert "| Are any skills duplicated? | Yes, 1 |" in md
     assert "| Are any skills out of date? | No |" in md
-    assert back["summary"]["decisions_needed"] == 2          # remove and conflict both need a decision
+    assert back["summary"]["decisions_needed"] == 2          # remove and conflict are distinct actions
+    assert back["summary"]["findings_total"] == 2
     assert back["findings"][0]["id"].startswith("dup-") and back["findings"][1]["id"].startswith("conf-")
     assert "Open an issue upstream" in md and "Waiting on your decision" in md
     assert "Nothing found." in md                              # empty sections still appear
