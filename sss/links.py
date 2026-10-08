@@ -19,12 +19,12 @@ def _link(target: Path, link: Path, copy: bool) -> str:
     link.parent.mkdir(parents=True, exist_ok=True)
     if link.is_symlink() or link.exists():
         if link.is_symlink():
-            if os.path.realpath(link) == os.path.realpath(target):
+            if not copy and os.path.realpath(link) == os.path.realpath(target):
                 return "unchanged"
-            link.unlink()
+            link.unlink()          # wrong target, or copy mode wants a real copy
         elif link.is_dir():
             if copy:
-                shutil.rmtree(link)
+                shutil.rmtree(link)  # refresh the copy
             else:
                 return f"skipped: {link} is a real directory"
         else:
@@ -37,9 +37,12 @@ def _link(target: Path, link: Path, copy: bool) -> str:
     return "linked"
 
 
-def sync_links(m: Manifest, copy: bool = False) -> list[dict]:
+def sync_links(m: Manifest, copy: bool | None = None) -> list[dict]:
     """Ensure every generated skill and every SSS command skill is reachable from
-    output_dir and all mirror_dirs."""
+    output_dir and all mirror_dirs. Symlinks by default; real copies when the
+    manifest says link_mode: copy."""
+    if copy is None:
+        copy = m.link_mode == "copy"
     results = []
     out = m.root / m.output_dir
     out.mkdir(parents=True, exist_ok=True)

@@ -96,6 +96,7 @@ class Manifest:
     root: Path
     output_dir: str = ".agents/skills"
     mirror_dirs: list[str] = field(default_factory=lambda: [".claude/skills"])
+    link_mode: str = "symlink"    # symlink | copy  (copy for file systems without symlinks)
     sources: list[Source] = field(default_factory=list)
     skills: list[Skill] = field(default_factory=list)
     schema_version: int = 1
@@ -115,6 +116,7 @@ class Manifest:
         m.schema_version = int(raw.get("schema_version", 1))
         m.output_dir = raw.get("output_dir", m.output_dir)
         m.mirror_dirs = list(raw.get("mirror_dirs", m.mirror_dirs) or [])
+        m.link_mode = raw.get("link_mode", "symlink")
         for s in raw.get("sources", []) or []:
             m.sources.append(Source(
                 name=s["name"], url=s.get("url"), ref=s.get("ref", "main"),
@@ -137,11 +139,12 @@ class Manifest:
             "schema_version": self.schema_version,
             "output_dir": self.output_dir,
             "mirror_dirs": list(self.mirror_dirs),
+            "link_mode": self.link_mode,
             "sources": [s.to_dict() for s in self.sources],
             "skills": [k.to_dict() for k in self.skills],
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        header = "# Managed by SSS. People edit output_dir, mirror_dirs, sources (not synced_*),\n# and skills name/from/patches. SSS writes the rest.\n"
+        header = "# Managed by SSS. People edit output_dir, mirror_dirs, link_mode, sources (not synced_*),\n# and skills name/from/patches. SSS writes the rest.\n"
         self.path.write_text(header + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
     # ---- lookups -----------------------------------------------------

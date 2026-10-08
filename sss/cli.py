@@ -57,7 +57,8 @@ def cmd_init(args) -> int:
     if p.exists() and not args.force:
         m = Manifest.load(root)
     else:
-        m = Manifest(root=root, output_dir=args.output_dir, mirror_dirs=list(args.mirror or [".claude/skills"]))
+        m = Manifest(root=root, output_dir=args.output_dir, mirror_dirs=list(args.mirror or [".claude/skills"]),
+                     link_mode="copy" if args.copy else "symlink")
         m.save()
     for d in (PATCHES_DIR, SOURCES_DIR, LOCAL_DIR, REPORTS_DIR):
         (root / d).mkdir(parents=True, exist_ok=True)
@@ -65,8 +66,11 @@ def cmd_init(args) -> int:
     (root / REPORTS_DIR / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
     if not (root / DECISIONS).exists():
         (root / DECISIONS).write_text("# finding-id: accept | {choice: N, note: \"...\"}\n", encoding="utf-8")
-    res = links.sync_links(m, copy=args.copy)
-    _out(args, {"manifest": str(p.relative_to(root)), "output_dir": m.output_dir, "mirror_dirs": m.mirror_dirs, "links": res})
+    if args.copy and m.link_mode != "copy":
+        m.link_mode = "copy"
+        m.save()
+    res = links.sync_links(m)
+    _out(args, {"manifest": str(p.relative_to(root)), "output_dir": m.output_dir, "mirror_dirs": m.mirror_dirs, "link_mode": m.link_mode, "links": res})
     return 0
 
 
@@ -206,7 +210,10 @@ def cmd_patch_new(args) -> int:
 
 def cmd_links(args) -> int:
     m = Manifest.load(_root(args))
-    _out(args, links.sync_links(m, copy=args.copy))
+    if args.copy and m.link_mode != "copy":
+        m.link_mode = "copy"
+        m.save()
+    _out(args, links.sync_links(m))
     return 0
 
 
@@ -244,7 +251,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("init", help="create .sss/ and link SSS command skills into the repo")
     s.add_argument("--output-dir", default=".agents/skills")
     s.add_argument("--mirror", action="append", help="extra skill dirs to link into (default .claude/skills)")
-    s.add_argument("--copy", action="store_true", help="copy instead of symlink (Windows)")
+    s.add_argument("--copy", action="store_true", help="copy instead of symlink (Windows); remembered in the manifest as link_mode")
     s.add_argument("--force", action="store_true", help="rewrite manifest defaults")
     s.set_defaults(fn=cmd_init)
 

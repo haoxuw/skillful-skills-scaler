@@ -237,6 +237,16 @@ def test_local_source(target: Path):
     assert st[0]["status"] == "stale"
 
 
+def test_copy_mode(source: Path, target: Path):
+    assert run(target, "init", "--copy")[0] == 0
+    assert not (target / ".agents" / "skills" / "update-skills").is_symlink()
+    assert run(target, "source", "add", "cookbook", f"file://{source}")[0] == 0
+    assert run(target, "import", "cookbook/salad")[0] == 0
+    mirror = target / ".claude" / "skills" / "salad"
+    assert mirror.is_dir() and not mirror.is_symlink(), "copy mode must persist across commands"
+    assert (mirror / "SKILL.md").read_text() == (target / ".agents" / "skills" / "salad" / "SKILL.md").read_text()
+
+
 def test_report_render(tmp_path: Path):
     data = {
         "inventory": [{"id": "a", "source": "local", "path": "x/a", "files": 1, "words": 10},
