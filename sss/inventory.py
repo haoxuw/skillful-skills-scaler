@@ -104,6 +104,7 @@ def scan(m: Manifest | None, root: Path) -> dict:
             "references": refs,
             "broken_references": broken,
             "mentions_skills": sorted(set(_TICK.findall(body))),
+            "_body": body,
         })
     # Two skills with the same name must still be told apart in findings.
     counts = Counter(s["name"] for s in skills)
@@ -111,7 +112,15 @@ def scan(m: Manifest | None, root: Path) -> dict:
         if counts[s["name"]] > 1:
             s["id"] = f"{s['name']} ({s['path']})"
     present = {s["name"] for s in skills} | {s["dir_name"] for s in skills}
+    # Mentions of known skill names anywhere in the text, backticked or not, with or
+    # without a .md / /SKILL.md tail, in prose, comments or the description.
+    known = sorted(set(available) | present, key=len, reverse=True)
+    known_re = re.compile(r"(?<![\w-])(" + "|".join(re.escape(k) for k in known) + r")(?:\.md|/SKILL\.md)?(?![\w-])") if known else None
     for s in skills:
+        if known_re:
+            text = s["description"] + "\n" + s["_body"]
+            s["mentions_skills"] = sorted(set(s["mentions_skills"]) | {mm.group(1) for mm in known_re.finditer(text)})
+        del s["_body"]
         missing = []
         for nm in s["mentions_skills"]:
             if nm in present or nm == s["name"]:
