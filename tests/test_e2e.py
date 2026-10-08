@@ -209,6 +209,25 @@ def test_full_loop(source: Path, target: Path):
     assert [s["skill"] for s in st] == ["omelette"]
 
 
+def test_local_source(target: Path):
+    assert run(target, "init")[0] == 0
+    rc, res = run(target, "source", "add", "mine", "--mode", "local")
+    assert rc == 0, res
+    d = target / ".sss" / "local" / "toast"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text("---\nname: toast\ndescription: Make toast.\n---\n\nToast bread.\n")
+    rc, res = run(target, "import", "mine/toast")
+    assert rc == 0, res
+    meta, body = frontmatter.read(target / ".agents" / "skills" / "toast" / "SKILL.md")
+    assert meta["metadata"]["sss"]["source"] == "mine" and "Toast bread" in body
+    commit_all(target, "local skill")
+    rc, st = run(target, "status", "--fail-on-stale")
+    assert rc == 0 and st[0]["status"] == "ok"
+    (d / "SKILL.md").write_text("---\nname: toast\ndescription: Make toast.\n---\n\nToast bread well.\n")
+    rc, st = run(target, "status", "toast")
+    assert st[0]["status"] == "stale"
+
+
 def test_report_render(tmp_path: Path):
     data = {
         "inventory": [{"id": "a", "source": "local", "path": "x/a", "files": 1, "words": 10},

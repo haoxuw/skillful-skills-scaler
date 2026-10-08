@@ -18,6 +18,8 @@ def add(m: Manifest, name: str, url: str | None, ref: str, mode: str, skills_roo
         raise ManifestError(f"source already exists: {name}")
     if mode != "local" and not url:
         raise ManifestError("url is required unless mode is local")
+    if mode == "local" and skills_root == "skills":
+        skills_root = "."   # local skills live directly under .sss/local/<skill>/
     src = Source(name=name, url=url, ref=ref, mode=mode, skills_root=skills_root)
     m.sources.append(src)
     if mode == "local":
