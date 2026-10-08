@@ -82,6 +82,7 @@ def apply(inv: dict, data: dict, update: dict) -> dict:
         a, b = sc.get("a"), sc.get("b")
         if a not in skills or b not in skills:
             errors.append(f"unknown skill in score: {a} / {b}"); continue
+        a, b = sorted((a, b))   # keys and hash order are always sorted
         try:
             stars = int(sc.get("stars"))
         except (TypeError, ValueError):
