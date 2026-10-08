@@ -254,8 +254,10 @@ def test_report_render(tmp_path: Path):
     assert rc == 0
     md = (tmp_path / "r.md").read_text()
     back = json.loads(jp.read_text())
-    for i in range(1, 9):
+    for i in range(1, 11):
         assert f"## {i}. " in md
+    assert "| Are any skills duplicated? | Yes, 1 |" in md
+    assert "| Are any skills out of date? | No |" in md
     assert back["summary"]["decisions_needed"] == 2          # remove and conflict both need a decision
     assert back["findings"][0]["id"].startswith("dup-") and back["findings"][1]["id"].startswith("conf-")
     assert "Open an issue upstream" in md and "Waiting on your decision" in md

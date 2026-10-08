@@ -6,18 +6,23 @@ generated from the same findings, so the two always agree.
 
 ## For non-technical readers
 
-When many skills are collected from different places, some of them end up
-saying the same thing twice, and some end up disagreeing with each other.
-The reorganize command reads every skill, finds those problems, and writes
+When many skills are collected from different places, some fall behind the
+place they came from, some say the same thing twice, some disagree with each
+other, some point at things that are not there, and some simply do not belong.
+The reorganize command reads every skill, looks for those problems, and writes
 them up in this report.
 
 The report is written for a person who owns the skills but may not have
-written them. It should answer four questions, in this order:
+written them. It answers five questions, in this order:
 
-1. What did we look at?
-2. What problems did we find?
-3. What do we suggest doing about each one?
-4. Which of those suggestions need a decision from you?
+1. Are any skills out of date?
+2. Are any skills duplicated?
+3. Do any skills give conflicting information?
+4. Are any skills missing pieces they refer to?
+5. Are any skills unuseful or out of place?
+
+Then it says what we suggest doing about each problem, and which suggestions
+need a decision from you.
 
 Every problem in the report comes with the evidence we used to find it, a
 plain-language explanation of why it matters, and one recommended action.
@@ -34,8 +39,20 @@ A single run writes two files next to each other:
 | `reorganize-report.md` | People | The readable report, structured as described below |
 | `reorganize-report.json` | Tools | The same findings in a fixed machine-readable shape |
 
-The markdown file is rendered from the JSON file. If they ever disagree, the
-JSON file is authoritative.
+The markdown file is rendered from the JSON file by `sss report`. If they
+ever disagree, the JSON file is authoritative.
+
+## Finding types
+
+| Type | Question it answers | Found by | Typical action |
+| --- | --- | --- | --- |
+| `out_of_date` | 1 | SSS status (`stale`, `conflict`, `pending`) for managed skills; the model for content that describes things that have since changed, with evidence | `update` |
+| `duplicate` | 2 | the model, judging candidate pairs from the inventory | `merge` or `remove` |
+| `conflict` | 3 | the model, judging candidate pairs | `patch`, or a decision |
+| `missing_dependency` | 4 | the inventory: a skill names another skill that is not here but is available from a source | `import` |
+| `broken_reference` | 4 | the inventory: a link to a file that does not exist | `fix_link` |
+| `out_of_place` | 5 | the model: the skill is unrelated to this repo, or is in the wrong folder | `move` or `remove` |
+| `low_value` | 5 | the model: the skill does not help an agent do anything, for example it is vague, trivially short, or only links elsewhere | `remove` or `patch` |
 
 ## Markdown report structure
 
@@ -45,164 +62,141 @@ reports comparable between runs.
 
 ### 1. Summary
 
-One short paragraph and one table. The paragraph says what was scanned and
-whether the result needs attention. The table gives counts only.
-
-| Metric | Count |
-| --- | --- |
-| Skills found | |
-| Sources | |
-| Duplicate groups | |
-| Conflicts | |
-| Broken references | |
-| Actions proposed | |
-| Decisions needed from you | |
+One short paragraph, then a table with one row per question and a yes or no
+answer with a count, followed by how many actions are safe to take and how
+many need a decision.
 
 ### 2. What we looked at
 
-The inventory. One row per skill.
+The inventory. One row per skill: name, source, status, location, number of
+files, word count, date of last change. "Source" names the origin the skill
+was imported from, or "local" if it was written in this repo. "Status" is the
+SSS status for managed skills and "unmanaged" otherwise.
 
-| Skill | Source | Location | Files | Words | Last changed |
-| --- | --- | --- | --- | --- | --- |
+### 3. Out of date
 
-"Source" names the origin the skill was imported from, or "local" if it was
-written in this repo. "Location" is the path relative to the repo root.
+One subsection per finding. Each states which skill, what it is behind or
+what has changed, with a quote, and what updating would involve. A managed
+skill that is `stale` is a confident finding with the status reason as
+evidence. A claim that content is outdated needs a quote from the skill and a
+sentence saying what is true now.
 
-### 3. Duplicates
+### 4. Duplicates
 
-Skills that cover the same ground. Each group is one subsection.
+One subsection per group. Each states which skills are in the group, why we
+think they overlap with a short quote from each, which one we recommend
+keeping and why, and what happens to the others. The default preference is
+the one that comes from a source of truth over a local copy, and the newer
+over the older.
 
-Each group states:
+### 5. Conflicts
 
-- Which skills are in the group.
-- Why we think they overlap, in one or two sentences, with a short quote
-  from each skill as evidence.
-- Which one we recommend keeping, and why. The default preference is the
-  one that comes from a source of truth over a local copy, and the newer one
-  over the older one.
-- What happens to the others: merged into the keeper, or removed.
-- Whether this is safe to apply without a decision.
+One subsection per conflict. Each states the two skills, the disagreement as
+a direct quote from each side, why it matters in plain language, the four
+fixed options, our recommendation with a confidence word, and always
+"Decision needed: yes".
 
-### 4. Conflicts
+The four options are always:
 
-Skills that disagree with each other. Each conflict is one subsection.
+1. Keep A, retire B.
+2. Keep B, retire A.
+3. Keep both, and write a local patch that reconciles them.
+4. Open an issue upstream, and patch locally meanwhile.
 
-Each conflict states:
+### 6. Missing pieces
 
-- The two skills involved.
-- The disagreement, as a direct quote from each side.
-- Why it matters, in plain language, for example "an agent following
-  skill A will create a regional cluster, an agent following skill B will
-  create a zonal one."
-- The options. There are always the same four:
-  1. Keep A, retire B.
-  2. Keep B, retire A.
-  3. Keep both, and write a local patch that reconciles them.
-  4. Change the source of truth upstream.
-- Our recommendation and how confident we are, in words: "confident",
-  "likely", or "unsure".
-- Decision needed: always yes for conflicts.
+Missing dependencies and broken references. Each states the skill, what it
+points at, where that thing can be found if we know, and the fix.
 
-### 5. Broken references
+### 7. Unuseful or out of place
 
-Skills that point at files, sections, or other skills that do not exist.
-One row per reference.
+One subsection per finding. Each quotes the skill, says why it does not help
+or does not belong here, and recommends moving or removing it. Removal
+always needs a decision.
 
-| Skill | Reference | Problem | Suggested fix |
-| --- | --- | --- | --- |
+### 8. Proposed changes
 
-### 6. Proposed changes
+The list of actions the pull request will perform, one line each, starting
+with a verb: Move, Merge, Remove, Patch, Rename, Fix link, Update, Import.
+Each line ends with the finding ID. Actions that need a decision are listed
+under a separate heading "Waiting on your decision" and are not in the pull
+request.
 
-The list of actions the pull request will perform, one line each. Each line
-starts with a verb: Move, Merge, Remove, Patch, Rename, Fix link. Each line
-names the finding it comes from so the reader can look it up above.
+### 9. What we left alone
 
-Actions marked "needs decision" are listed here too, but under a separate
-heading "Waiting on your decision", and are not in the pull request.
+Anything we noticed but chose not to act on, with a one-line reason, so the
+reader knows the omission was deliberate. Candidate pairs judged to be fine
+go here.
 
-### 7. What we left alone
+### 10. How to respond
 
-Anything we noticed but chose not to act on, with a one-line reason. This
-section exists so the reader knows the omission was deliberate.
-
-### 8. How to respond
-
-Instructions for recording decisions. The reader answers each "needs
-decision" item by its finding ID, either in a reply on the pull request or
-by editing the decisions file. The next run reads those decisions and
-applies them.
+How to record decisions, by finding ID, in a pull request comment or in
+`.sss/decisions.yaml`.
 
 ## JSON report structure
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "generated_at": "2026-10-08T14:30:00Z",
   "repo": "github.com/owner/repo",
   "commit": "abc1234",
-  "summary": {
-    "skills_found": 0,
-    "sources": 0,
-    "duplicate_groups": 0,
-    "conflicts": 0,
-    "broken_references": 0,
-    "actions_proposed": 0,
-    "decisions_needed": 0
-  },
+  "summary_text": "optional one-paragraph override for section 1",
   "inventory": [
     {
-      "id": "gke-reliability",
-      "source": "gke-mcp",
-      "path": "skills/gke-reliability",
+      "id": "gke-observability",
+      "source": "google",
+      "status": "ok",
+      "path": ".agents/skills/gke-observability",
       "files": 1,
-      "words": 820,
-      "last_changed": "2026-05-28"
+      "words": 1923,
+      "last_changed": "2026-10-08"
     }
   ],
   "findings": [
     {
-      "id": "dup-3f9a2c",
-      "type": "duplicate",
-      "skills": ["gke-reliability", "cluster-ha-checks"],
-      "why_it_matters": "Both tell the agent how to check cluster availability. An agent may load both and spend tokens twice.",
+      "id": "conf-3f9a2c",
+      "type": "conflict",
+      "skills": ["gke-observability", "gke-observability-fork"],
+      "why_it_matters": "An agent following one skill will pass a flag that gcloud rejects.",
       "evidence": [
-        {"skill": "gke-reliability", "file": "SKILL.md", "line": 14, "quote": "Check if the cluster is regional"},
-        {"skill": "cluster-ha-checks", "file": "SKILL.md", "line": 3, "quote": "Verify the cluster spans multiple zones"}
+        {"skill": "gke-observability", "file": "SKILL.md", "line": 72, "quote": "--enable-dataplane-v2-flow-observability"},
+        {"skill": "gke-observability-fork", "file": "SKILL.md", "line": 98, "quote": "--enable-dataplane-v2-observability"}
       ],
-      "options": [],
-      "recommendation": "Keep gke-reliability because it comes from the source of truth and is newer.",
-      "confidence": "likely",
-      "decision_needed": false,
-      "proposed_action": {
-        "verb": "merge",
-        "from": ["cluster-ha-checks"],
-        "into": "gke-reliability"
-      }
+      "options": ["Keep A, retire B.", "Keep B, retire A.", "Keep both, and write a local patch that reconciles them.", "Open an issue upstream, and patch locally meanwhile."],
+      "recommendation": "Keep gke-observability. It is the current upstream; the fork copy predates the flag rename.",
+      "confidence": "confident",
+      "decision_needed": true,
+      "proposed_action": {"verb": "remove", "from": ["gke-observability-fork"]}
     }
   ],
   "left_alone": [
-    {"skill": "meme-maker", "reason": "Unrelated to the other skills, no overlap found."}
+    {"skill": "gcloud", "reason": "No overlap with the other skills here."}
   ]
 }
 ```
 
 Field rules:
 
-- `findings[].type` is one of `duplicate`, `conflict`, `broken_reference`,
-  `orphan`, `oversize`.
+- `findings[].type` is one of the seven types in the table above.
 - `findings[].id` is stable across runs. It is a short hash of the type plus
-  the sorted skill IDs involved. A finding keeps its ID until the underlying
-  skills change, so a decision recorded against it still applies next run.
+  the sorted skill IDs involved, with a type prefix such as `dup-`, `conf-`,
+  `old-`, `dep-`, `ref-`, `place-`, `low-`. A finding keeps its ID until the
+  underlying skills change, so a decision recorded against it still applies
+  next run.
 - `findings[].confidence` is one of `confident`, `likely`, `unsure`. Words,
   not numbers, because the reader is a person.
-- `findings[].decision_needed` is always `true` for `conflict`. For other
-  types it is `true` when confidence is `unsure`.
-- `findings[].options` is required for `conflict` and contains the four
-  fixed options listed above. It is empty for other types.
+- `findings[].decision_needed` is forced to `true` by the renderer for every
+  `conflict`, for every finding with confidence `unsure`, and for every
+  action whose verb is `remove`.
+- `findings[].options` is filled with the four fixed options for `conflict`
+  and is empty for other types.
 - `findings[].proposed_action.verb` is one of `move`, `merge`, `remove`,
-  `patch`, `rename`, `fix_link`, `none`.
+  `patch`, `rename`, `fix_link`, `update`, `import`, `none`. `from`, `into`
+  and `detail` are optional.
 - Every finding has at least one `evidence` entry. A finding without
   evidence is a bug in the tool, not a finding.
+- `summary` is computed by the renderer and overwritten on every render.
 
 ## Writing rules for the markdown report
 
@@ -221,7 +215,7 @@ These apply to every sentence the tool writes into the report.
 
 ## Decisions file
 
-The reader's answers are recorded in `.skills/decisions.yaml` in the target
+The reader's answers are recorded in `.sss/decisions.yaml` in the target
 repo so they survive between runs.
 
 ```yaml

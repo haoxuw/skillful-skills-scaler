@@ -20,10 +20,22 @@ Run the CLI as `python3 .sss/tool/sss.py` from the repo root.
    ```bash
    python3 .sss/tool/sss.py inventory > /tmp/sss-inventory.json
    ```
-   This lists every skill (excluding replicas and mirrors), its source, size,
-   references, broken references, and `candidates`: pairs that look alike by
-   identical body or by overlapping names and descriptions. Only judge candidates.
-   Do not compare every skill against every other.
+   This lists every skill (excluding replicas and mirrors) with its source, SSS
+   status, size, last change date, references, `broken_references`,
+   `missing_dependencies` (skills it names that are not here but are available
+   from a source), and `candidates`: pairs that look alike by identical body or
+   by overlapping names, descriptions or headings. Only judge candidates. Do not
+   compare every skill against every other.
+
+   The report answers five questions in order: out of date, duplicated,
+   conflicting, missing pieces, unuseful or out of place. Some answers are
+   already in the inventory and need no judgement:
+   - every managed skill whose `status` is `stale`, `pending` or `conflict` is an
+     `out_of_date` finding, with `status_reasons` as evidence;
+   - every `missing_dependencies` entry is a `missing_dependency` finding with an
+     `import` action;
+   - every `broken_references` entry is a `broken_reference` finding with a
+     `fix_link` action.
 
 2. **Read any earlier decisions** in `.sss/decisions.yaml`. A finding whose ID has a
    recorded decision is settled: apply the decision, do not ask again.
@@ -31,14 +43,21 @@ Run the CLI as `python3 .sss/tool/sss.py` from the repo root.
 3. **Judge each candidate pair.** Open both SKILL.md files. Decide:
    - `duplicate`: they cover the same ground. Recommend the keeper. Prefer a skill
      from a source of truth over a local one, and the newer over the older.
-   - `conflict`: they disagree. Quote the exact lines that disagree from each side.
-     Say in one sentence what goes wrong if nothing is done.
+   - `conflict`: they disagree on a fact or an instruction. Quote the exact lines
+     that disagree from each side. Say in one sentence what goes wrong if nothing
+     is done. A pair can be both a duplicate and a conflict; file both.
    - neither: list it under `left_alone` with a one-line reason.
    Every finding needs at least one `evidence` entry with a quote. Confidence is a
    word: `confident`, `likely`, or `unsure`.
 
-4. **Broken references** from the inventory become `broken_reference` findings with
-   a `fix_link` action.
+4. **Judge every skill on its own** for the last two questions, briefly:
+   - `out_of_date` by content: it describes a flag, API, version or product that
+     has since changed. Quote the line and say what is true now. Only file this
+     when you are sure; otherwise leave it alone.
+   - `out_of_place`: it has nothing to do with what this repo does, or sits in
+     the wrong folder. Quote its description and say why it does not fit.
+   - `low_value`: it would not help an agent do anything: vague, trivially short,
+     or only a list of links. Quote what little it says.
 
 5. **Write the JSON** to `reorganize-report.json` following the schema, then render:
    ```bash
