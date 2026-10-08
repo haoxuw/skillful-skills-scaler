@@ -86,6 +86,7 @@ def test_full_loop(source: Path, target: Path):
     rc, res = run(target, "init")
     assert rc == 0, res
     assert (target / ".sss" / "manifest.yaml").is_file()
+    assert (target / ".sss" / "reports" / ".gitignore").read_text().startswith("*")
     assert (target / ".agents" / "skills" / "update-skills").is_symlink()
     assert (target / ".claude" / "skills" / "update-skills" / "SKILL.md").is_file()
 
@@ -263,3 +264,5 @@ def test_report_render(tmp_path: Path):
     assert back["findings"][0]["id"].startswith("dup-") and back["findings"][1]["id"].startswith("conf-")
     assert "Open an issue upstream" in md and "Waiting on your decision" in md
     assert "Nothing found." in md                              # empty sections still appear
+    assert "## Appendix: every skill we found" in md
+    assert "### a" in md and "duplicate with b [dup-" in md and "- **Concerns:** none" not in md.split("### a")[1].split("### b")[0]

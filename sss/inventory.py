@@ -3,9 +3,11 @@ The model only judges candidates this module surfaces."""
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import re
 import subprocess
+from collections import Counter
 from itertools import combinations
 from pathlib import Path
 
@@ -13,12 +15,14 @@ from . import frontmatter, sources as srcmod, status as statusmod
 from .manifest import Manifest, SOURCES_DIR, TOOL_DIR
 
 SKIP_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build"}
-_LINK = re.compile(r"\[[^\]]*\]\(([^)\s#]+)[^)]*\)|`((?:\./|\.\./|/)?[\w./-]+\.(?:md|sh|py|yaml|yml|json|txt))`")
+_MDLINK = re.compile(r"\[[^\]]*\]\(([^)\s#]+)[^)]*\)")
+_TICKPATH = re.compile(r"`((?:\./|\.\./)?[\w.-]+(?:/[\w.-]+)+\.(?:md|sh|py|yaml|yml|json|txt|toml|tf))`")
 _TICK = re.compile(r"`([a-z0-9]+(?:-[a-z0-9]+)+)`")
 _HEAD = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.M)
 _WORD = re.compile(r"[a-z0-9]+")
 STOP = {"the", "a", "an", "and", "or", "for", "to", "of", "in", "on", "with", "this", "that", "skill", "skills", "use", "when",
-        "how", "is", "are", "it", "you", "your", "using", "don", "not", "do", "from", "by", "as", "be", "into", "guide", "fork", "old", "new", "v2", "copy"}
+        "how", "is", "are", "it", "you", "your", "using", "don", "not", "do", "from", "by", "as", "be", "into", "guide", "fork",
+        "old", "new", "v2", "copy", "t", "s"}
 
 
 def _tokens(*texts: str) -> set[str]:
@@ -28,8 +32,18 @@ def _tokens(*texts: str) -> set[str]:
     return toks
 
 
-def _jaccard(a: set[str], b: set[str]) -> float:
-    return len(a & b) / len(a | b) if a or b else 0.0
+def _weighted_jaccard(a: set[str], b: set[str], w: dict[str, float]) -> float:
+    inter = sum(w.get(t, 1.0) for t in a & b)
+    union = sum(w.get(t, 1.0) for t in a | b)
+    return inter / union if union else 0.0
+
+
+def _idf(sets: list[set[str]]) -> dict[str, float]:
+    """Tokens shared by many skills (a family prefix like 'google cloud waf', or a
+    heading like 'Usage') say little about any one pair."""
+    n = max(len(sets), 1)
+    df = Counter(t for s in sets for t in s)
+    return {t: math.log((n + 1) / (c + 1)) + 0.1 for t, c in df.items()}
 
 
 def find_skill_dirs(root: Path, exclude: list[str]) -> list[Path]:
@@ -67,12 +81,13 @@ def scan(m: Manifest | None, root: Path) -> dict:
         files = [p for p in d.rglob("*") if p.is_file()]
         words = sum(len(p.read_text(encoding="utf-8", errors="replace").split()) for p in files if p.suffix.lower() in (".md", ".txt"))
         prov = (meta.get("metadata") or {}).get("sss") if isinstance(meta.get("metadata"), dict) else None
-        refs, broken = _references(d, body)
+        refs, broken = _references(d, body, files)
         rel = os.path.relpath(d, root)
-        sid = str(meta.get("name") or d.name)
-        st = managed_status.get(sid, {})
+        name = str(meta.get("name") or d.name)
+        st = managed_status.get(name, {})
         skills.append({
-            "id": sid,
+            "id": name,
+            "name": name,
             "dir_name": d.name,
             "path": rel,
             "source": (prov or {}).get("source", "local"),
@@ -90,14 +105,19 @@ def scan(m: Manifest | None, root: Path) -> dict:
             "broken_references": broken,
             "mentions_skills": sorted(set(_TICK.findall(body))),
         })
-    present = {s["id"] for s in skills} | {s["dir_name"] for s in skills}
+    # Two skills with the same name must still be told apart in findings.
+    counts = Counter(s["name"] for s in skills)
+    for s in skills:
+        if counts[s["name"]] > 1:
+            s["id"] = f"{s['name']} ({s['path']})"
+    present = {s["name"] for s in skills} | {s["dir_name"] for s in skills}
     for s in skills:
         missing = []
-        for name in s["mentions_skills"]:
-            if name in present or name == s["id"]:
+        for nm in s["mentions_skills"]:
+            if nm in present or nm == s["name"]:
                 continue
-            if name in available:
-                missing.append({"skill": name, "available_from": available[name]})
+            if nm in available:
+                missing.append({"skill": nm, "available_from": available[nm]})
         for b in s["broken_references"]:
             head = b.split("/")[0]
             if head in available and head not in present:
@@ -105,25 +125,32 @@ def scan(m: Manifest | None, root: Path) -> dict:
                 if entry not in missing:
                     missing.append(entry)
         s["missing_dependencies"] = missing
-    return {"root": str(root), "skills": skills, "candidates": candidates(skills)}
+    return {"root": str(root), "skills": skills, "candidates": candidates(skills), "same_name": [n for n, c in counts.items() if c > 1]}
 
 
-def _references(d: Path, body: str) -> tuple[list[str], list[str]]:
+def _references(d: Path, body: str, files: list[Path]) -> tuple[list[str], list[str]]:
+    """Markdown links and backticked relative paths count as references. A bare
+    backticked filename is only a reference if such a file exists in the skill
+    folder; otherwise it is just a name being mentioned."""
     refs, broken = [], []
-    for mm in _LINK.finditer(body):
-        target = mm.group(1) or mm.group(2)
-        if not target or target.startswith(("http://", "https://", "mailto:")):
+    basenames = {p.name for p in files}
+    seen = set()
+    for mm in list(_MDLINK.finditer(body)) + list(_TICKPATH.finditer(body)):
+        target = mm.group(1)
+        if not target or target in seen or target.startswith(("http://", "https://", "mailto:", "/")):
             continue
+        seen.add(target)
         refs.append(target)
-        p = (d / target) if not target.startswith("/") else (d.parents[len(d.parents) - 1] / target.lstrip("/"))
-        if not p.exists():
+        p = d / target
+        if not p.exists() and os.path.basename(target) not in basenames:
             broken.append(target)
     return refs, broken
 
 
 def candidates(skills: list[dict]) -> list[dict]:
     """Cheap duplicate candidates. Identical body is certain. Otherwise a pair is a
-    candidate when names overlap, descriptions overlap, or headings overlap."""
+    candidate when the distinguishing parts of their names, descriptions or
+    headings overlap, after down-weighting tokens common to many skills."""
     out = []
     by_sha: dict[str, list[str]] = {}
     for s in skills:
@@ -131,21 +158,24 @@ def candidates(skills: list[dict]) -> list[dict]:
     for ids in by_sha.values():
         if len(ids) > 1:
             out.append({"kind": "identical_body", "skills": sorted(ids), "score": 1.0, "why": "same text"})
-    name_t = {s["id"]: _tokens(s["id"].replace("-", " "), s["dir_name"].replace("-", " ")) for s in skills}
+    name_t = {s["id"]: _tokens(s["name"].replace("-", " "), s["dir_name"].replace("-", " ")) for s in skills}
     desc_t = {s["id"]: _tokens(s["description"]) for s in skills}
     head_t = {s["id"]: _tokens(*s.get("headings", [])) for s in skills}
+    wn, wd, wh = _idf(list(name_t.values())), _idf(list(desc_t.values())), _idf(list(head_t.values()))
     for a, b in combinations(skills, 2):
         if a["body_sha"] == b["body_sha"]:
             continue
-        n = _jaccard(name_t[a["id"]], name_t[b["id"]])
-        d = _jaccard(desc_t[a["id"]], desc_t[b["id"]])
-        h = _jaccard(head_t[a["id"]], head_t[b["id"]])
+        n = _weighted_jaccard(name_t[a["id"]], name_t[b["id"]], wn)
+        d = _weighted_jaccard(desc_t[a["id"]], desc_t[b["id"]], wd)
+        h = _weighted_jaccard(head_t[a["id"]], head_t[b["id"]], wh)
         why = []
         if n >= 0.5:
             why.append(f"names overlap {n:.2f}")
-        if d >= 0.3:
+        if d >= 0.35:
             why.append(f"descriptions overlap {d:.2f}")
-        if h >= 0.4 and len(head_t[a["id"]] | head_t[b["id"]]) >= 4:
+        # Shared headings alone only mean a shared template; they count when the
+        # names or descriptions also lean the same way.
+        if h >= 0.5 and len(head_t[a["id"]] | head_t[b["id"]]) >= 6 and (n >= 0.35 or d >= 0.25):
             why.append(f"headings overlap {h:.2f}")
         if why:
             out.append({"kind": "similar", "skills": sorted([a["id"], b["id"]]), "score": round(max(n, d, h), 2), "why": "; ".join(why)})

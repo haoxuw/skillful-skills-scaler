@@ -77,6 +77,7 @@ SSS needs Python 3.12 or newer and PyYAML. Nothing else.
   tool/                      # SSS itself, as a submodule
   manifest.yaml              # part 3
   decisions.yaml             # answers to reorganize findings
+  reports/                   # reorganize reports; gitignored, local only
   sources/
     <source-name>/           # part 1, one folder per source
       LICENSE                # carried along from the source

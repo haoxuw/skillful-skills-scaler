@@ -32,12 +32,16 @@ for you to decide.
 
 ## Files produced
 
-A single run writes two files next to each other:
+A single run writes two files into `.sss/reports/` in the target repo:
 
 | File | Audience | Purpose |
 | --- | --- | --- |
-| `reorganize-report.md` | People | The readable report, structured as described below |
-| `reorganize-report.json` | Tools | The same findings in a fixed machine-readable shape |
+| `.sss/reports/reorganize-report.md` | People | The readable report, structured as described below |
+| `.sss/reports/reorganize-report.json` | Tools | The same findings in a fixed machine-readable shape |
+
+The report is a local working document. `.sss/reports/` is gitignored by
+`sss init`, so reports are never committed. When a pull request is opened,
+the markdown is pasted into the pull request description instead.
 
 The markdown file is rendered from the JSON file by `sss report`. If they
 ever disagree, the JSON file is authoritative.
@@ -133,6 +137,22 @@ go here.
 How to record decisions, by finding ID, in a pull request comment or in
 `.sss/decisions.yaml`.
 
+### Appendix: every skill we found
+
+One entry per skill discovered, in inventory order. Each entry has:
+
+- **Source, status, location.**
+- **Goal.** What the skill is for, in one plain line. The agent writes this
+  as `goal` on the inventory entry; if it is missing, the skill's own
+  description is used, cut to one line.
+- **Concerns.** Every finding in sections 3 to 7 that involves this skill,
+  one per line, with the type, the other skills involved, the finding ID,
+  the recommendation, and whether a decision is needed. A skill with no
+  findings says "none".
+
+This is the part of the report to read when the question is "what do we
+have, and is this particular skill fine?"
+
 ## JSON report structure
 
 ```json
@@ -148,6 +168,7 @@ How to record decisions, by finding ID, in a pull request comment or in
       "source": "google",
       "status": "ok",
       "path": ".agents/skills/gke-observability",
+      "goal": "Set up and troubleshoot logging, monitoring and Managed Prometheus on GKE.",
       "files": 1,
       "words": 1923,
       "last_changed": "2026-10-08"
@@ -197,6 +218,10 @@ Field rules:
 - Every finding has at least one `evidence` entry. A finding without
   evidence is a bug in the tool, not a finding.
 - `summary` is computed by the renderer and overwritten on every render.
+- `inventory[].goal` is optional and written by the agent. Keep it to one
+  sentence a newcomer would understand.
+- When two skills share a name, their `id` is `name (path)` so findings can
+  tell them apart.
 
 ## Writing rules for the markdown report
 

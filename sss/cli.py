@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from . import deprecate as depmod, generate, inventory, links, patches as patchmod, report, sources, status
-from .manifest import DECISIONS, LOCAL_DIR, PATCHES_DIR, SOURCES_DIR, Manifest, ManifestError, Skill
+from .manifest import DECISIONS, LOCAL_DIR, PATCHES_DIR, REPORTS_DIR, SOURCES_DIR, Manifest, ManifestError, Skill
 from . import gitutil
 
 
@@ -59,8 +59,10 @@ def cmd_init(args) -> int:
     else:
         m = Manifest(root=root, output_dir=args.output_dir, mirror_dirs=list(args.mirror or [".claude/skills"]))
         m.save()
-    for d in (PATCHES_DIR, SOURCES_DIR, LOCAL_DIR):
+    for d in (PATCHES_DIR, SOURCES_DIR, LOCAL_DIR, REPORTS_DIR):
         (root / d).mkdir(parents=True, exist_ok=True)
+    # Reports are local working documents, never committed.
+    (root / REPORTS_DIR / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
     if not (root / DECISIONS).exists():
         (root / DECISIONS).write_text("# finding-id: accept | {choice: N, note: \"...\"}\n", encoding="utf-8")
     res = links.sync_links(m, copy=args.copy)
@@ -216,8 +218,12 @@ def cmd_inventory(args) -> int:
 
 
 def cmd_report(args) -> int:
-    report.render_file(Path(args.json_file), Path(args.out))
-    print(f"wrote {args.out}")
+    root = _root(args)
+    json_path = Path(args.json_file) if args.json_file else root / REPORTS_DIR / "reorganize-report.json"
+    out = Path(args.out) if args.out else root / REPORTS_DIR / "reorganize-report.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    report.render_file(json_path, out)
+    print(f"wrote {out}")
     return 0
 
 
@@ -272,7 +278,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("links", help="re-link skills into output and mirror dirs"); s.add_argument("--copy", action="store_true"); s.set_defaults(fn=cmd_links)
     s = sub.add_parser("inventory", help="JSON of every skill in the repo plus duplicate candidates"); s.set_defaults(fn=cmd_inventory)
-    s = sub.add_parser("report", help="render reorganize-report.md from JSON"); s.add_argument("json_file"); s.add_argument("--out", default="reorganize-report.md"); s.set_defaults(fn=cmd_report)
+    s = sub.add_parser("report", help="render the reorganize report (markdown) from its JSON; both live in .sss/reports/, which is gitignored")
+    s.add_argument("json_file", nargs="?", help="default .sss/reports/reorganize-report.json"); s.add_argument("--out", help="default .sss/reports/reorganize-report.md"); s.set_defaults(fn=cmd_report)
     s = sub.add_parser("deprecate", help="remove a skill, its patches, output and links; list references"); s.add_argument("skill"); s.add_argument("--keep-patches", action="store_true"); s.set_defaults(fn=cmd_deprecate)
     return p
 

@@ -19,6 +19,7 @@ SOURCES_DIR = f"{SSS_DIR}/sources"
 LOCAL_DIR = f"{SSS_DIR}/local"
 TOOL_DIR = f"{SSS_DIR}/tool"
 DECISIONS = f"{SSS_DIR}/decisions.yaml"
+REPORTS_DIR = f"{SSS_DIR}/reports"
 
 STATUSES = ("pending", "ok", "stale", "conflict", "failed")
 

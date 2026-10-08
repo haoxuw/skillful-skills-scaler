@@ -107,18 +107,27 @@ def _sync_copy(m: Manifest, src: Source) -> str:
     return sha
 
 
+def _git_opts(url: str | None) -> list[str]:
+    # Local sources (tests, monorepos) need the file transport, which git disables
+    # for submodules by default.
+    local = bool(url) and (url.startswith("file://") or url.startswith("/") or url.startswith("."))
+    return ["-c", "protocol.file.allow=always"] if local else []
+
+
 def _sync_submodule(m: Manifest, src: Source) -> str:
     sub = m.root / src.path
     if not (sub / ".git").exists():
-        subprocess.run(
-            ["git", "submodule", "add", "-b", src.ref, src.url, src.path],
-            cwd=str(m.root), check=True, capture_output=True, text=True,
+        proc = subprocess.run(
+            ["git", *_git_opts(src.url), "submodule", "add", "-b", src.ref, src.url, src.path],
+            cwd=str(m.root), capture_output=True, text=True,
         )
     else:
-        subprocess.run(
-            ["git", "submodule", "update", "--remote", "--", src.path],
-            cwd=str(m.root), check=True, capture_output=True, text=True,
+        proc = subprocess.run(
+            ["git", *_git_opts(src.url), "submodule", "update", "--remote", "--init", "--", src.path],
+            cwd=str(m.root), capture_output=True, text=True,
         )
+    if proc.returncode != 0:
+        raise ManifestError(f"source {src.name}: {proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else 'git submodule failed'}")
     return gitutil.head(sub) or ""
 
 

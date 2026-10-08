@@ -164,7 +164,42 @@ def render(data: dict) -> str:
           "either as a comment on the pull request or by adding a line to `.sss/decisions.yaml`:", "",
           "```yaml", "dup-3f9a2c: accept", "conf-81be44:", "  choice: 3", "  note: \"Both are right in different regions.\"", "```", "",
           "The next run reads those answers and applies them. Items you have answered are not asked again.", ""]
+
+    # Appendix: every skill, its goal, and every concern that touches it
+    L += ["## Appendix: every skill we found", ""]
+    L += ["One entry per skill. \"Goal\" is what the skill is for, in one line. \"Concerns\" lists every finding above that involves it.", ""]
+    for i in data["inventory"]:
+        L += _appendix_entry(i, data["findings"])
     return "\n".join(L)
+
+
+_SHORT = {"out_of_date": "out of date", "duplicate": "duplicate", "conflict": "conflicts", "missing_dependency": "missing dependency",
+          "broken_reference": "broken link", "out_of_place": "out of place", "low_value": "low value"}
+
+
+def _one_line(text: str, limit: int = 160) -> str:
+    text = " ".join((text or "").split())
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def _appendix_entry(i: dict, findings: list[dict]) -> list[str]:
+    sid = i.get("id", "")
+    L = [f"### {sid}", ""]
+    L.append(f"- **Source:** {i.get('source', 'local')}  **Status:** {i.get('status', '')}  **Location:** `{i.get('path', '')}`")
+    goal = i.get("goal") or _one_line(i.get("description", "")) or "No description given."
+    L.append(f"- **Goal:** {goal}")
+    mine = [f for f in findings if sid in f.get("skills", [])]
+    if not mine:
+        L.append("- **Concerns:** none")
+    else:
+        L.append("- **Concerns:**")
+        for f in mine:
+            others = [s for s in f.get("skills", []) if s != sid]
+            with_ = f" with {', '.join(others)}" if others else ""
+            tail = f" Decision needed." if f.get("decision_needed") else ""
+            L.append(f"  - {_SHORT.get(f.get('type'), f.get('type'))}{with_} [{f['id']}]: {_one_line(f.get('recommendation') or f.get('why_it_matters', ''), 140)}{tail}")
+    L.append("")
+    return L
 
 
 def _finding_block(f: dict, show_options: bool) -> list[str]:

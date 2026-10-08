@@ -59,12 +59,17 @@ Run the CLI as `python3 .sss/tool/sss.py` from the repo root.
    - `low_value`: it would not help an agent do anything: vague, trivially short,
      or only a list of links. Quote what little it says.
 
-5. **Write the JSON** to `reorganize-report.json` following the schema, then render:
+5. **Write the JSON** to `.sss/reports/reorganize-report.json` following the
+   schema. Copy the inventory entries from step 1 and add a one-line `goal` to
+   each, in words a newcomer would understand. Then render:
    ```bash
-   python3 .sss/tool/sss.py report reorganize-report.json --out reorganize-report.md
+   python3 .sss/tool/sss.py report
    ```
-   The renderer fills IDs, forces `decision_needed` for conflicts, for `unsure`
-   findings and for any `remove` action, and computes the summary.
+   This writes `.sss/reports/reorganize-report.md`. The renderer fills IDs,
+   forces `decision_needed` for conflicts, for `unsure` findings and for any
+   `remove` action, computes the summary, and appends an appendix with every
+   skill, its goal, and the concerns that touch it. `.sss/reports/` is
+   gitignored: the report is a local working document and is never committed.
 
 6. **Apply only the safe actions**, meaning findings with `decision_needed: false`:
    - A duplicate of a managed skill is handled by `deprecate` on the copy.
@@ -73,15 +78,19 @@ Run the CLI as `python3 .sss/tool/sss.py` from the repo root.
    - A broken link is fixed in the patch or local skill, never in generated output.
    Anything needing a decision is left alone and listed in the report.
 
-7. **Open the PR** against this repo on a new branch. The PR body is the markdown
-   report. Title: "Reorganize skills: N findings, M need a decision". Include both
-   report files in the PR.
+7. **Open the PR** against this repo on a new branch, if there is at least one
+   safe action or the user asked for one. The PR body is the full text of
+   `.sss/reports/reorganize-report.md`. Title: "Reorganize skills: N findings,
+   M need a decision". Do not commit the report files; they are gitignored.
+   If there is nothing safe to apply, skip the PR and hand the user the report
+   path instead.
 
 ## Reporting back
 
 Summarise for the user in plain language: how many skills, how many problems, what
 you changed, and exactly which IDs need their answer. A second-year CS student
-should be able to follow it. Point them at section 8 of the report for how to answer.
+should be able to follow it. Give them the path `.sss/reports/reorganize-report.md`
+and point at section 10 for how to answer.
 
 ## Rules
 
