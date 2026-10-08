@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -76,6 +78,7 @@ def cmd_source_add(args) -> int:
         except Exception:
             m.sources = [s for s in m.sources if s.name != src.name]
             m.save()
+            shutil.rmtree(m.root / src.path, ignore_errors=True)
             raise
         res["available_skills"] = sources.list_skill_dirs(m, src)
         if not res["available_skills"]:
@@ -267,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         return args.fn(args)
-    except (ManifestError, FileNotFoundError, gitutil.GitError) as e:
+    except (ManifestError, gitutil.GitError, OSError, subprocess.CalledProcessError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 

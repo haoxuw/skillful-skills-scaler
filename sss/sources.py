@@ -61,9 +61,8 @@ def _sync_copy(m: Manifest, src: Source) -> str:
             raise ManifestError(f"source {src.name}: skills_root {src.skills_root!r} not found at {src.url}")
         if dest.exists():
             shutil.rmtree(dest)
-        dest.mkdir(parents=True)
         target = dest / root if root and root != "." else dest
-        shutil.copytree(subtree, target, symlinks=False, ignore=shutil.ignore_patterns(".git"))
+        shutil.copytree(subtree, target, symlinks=False, ignore=shutil.ignore_patterns(".git", "node_modules"))
         for lic in LICENSE_NAMES:
             if (clone / lic).is_file():
                 shutil.copy2(clone / lic, dest / lic)
