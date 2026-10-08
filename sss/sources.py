@@ -62,7 +62,7 @@ def _sync_copy(m: Manifest, src: Source) -> str:
         if dest.exists():
             shutil.rmtree(dest)
         target = dest / root if root and root != "." else dest
-        shutil.copytree(subtree, target, symlinks=False, ignore=shutil.ignore_patterns(".git", "node_modules"))
+        shutil.copytree(subtree, target, symlinks=False, ignore=shutil.ignore_patterns(".git", "node_modules"), ignore_dangling_symlinks=True)
         for lic in LICENSE_NAMES:
             if (clone / lic).is_file():
                 shutil.copy2(clone / lic, dest / lic)
