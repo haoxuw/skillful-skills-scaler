@@ -2,6 +2,7 @@
 letter; submodule mode pins a git submodule; local mode is the repo's own skills."""
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -47,10 +48,12 @@ def _sync_copy(m: Manifest, src: Source) -> str:
     dest = m.root / src.path
     with tempfile.TemporaryDirectory(prefix="sss-src-") as tmp:
         clone = Path(tmp) / "clone"
-        subprocess.run(
+        proc = subprocess.run(
             ["git", "clone", "--quiet", "--depth", "1", "--branch", src.ref, src.url, str(clone)],
-            check=True, capture_output=True, text=True,
+            capture_output=True, text=True,
         )
+        if proc.returncode != 0:
+            raise ManifestError(f"source {src.name}: clone failed: {proc.stderr.strip().splitlines()[-1] if proc.stderr.strip() else 'unknown error'}")
         sha = gitutil.head(clone) or ""
         root = src.skills_root.strip("/")
         subtree = clone / root if root and root != "." else clone
@@ -87,12 +90,18 @@ def _sync_submodule(m: Manifest, src: Source) -> str:
 
 
 def list_skill_dirs(m: Manifest, src: Source) -> list[str]:
+    """Every directory under skills_root that holds a SKILL.md, as a path relative to
+    skills_root. Skills may be nested in category folders; skills do not nest in skills."""
     root = m.root / src.path
-    base = root / src.skills_root.strip("/") if src.skills_root.strip("/") not in ("", ".") else root
+    sr = src.skills_root.strip("/")
+    base = root / sr if sr not in ("", ".") else root
     if not base.is_dir():
         return []
+    skip = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", ".sss"}
     out = []
-    for d in sorted(base.iterdir()):
-        if d.is_dir() and (d / "SKILL.md").is_file():
-            out.append(d.name)
-    return out
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = sorted(d for d in dirnames if d not in skip)
+        if "SKILL.md" in filenames and Path(dirpath) != base:
+            out.append(os.path.relpath(dirpath, base))
+            dirnames[:] = []
+    return sorted(out)

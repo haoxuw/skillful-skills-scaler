@@ -71,8 +71,15 @@ def cmd_source_add(args) -> int:
     src = sources.add(m, args.name, args.url, args.ref, args.mode, args.skills_root)
     res = {"source": src.to_dict()}
     if src.mode != "local" and not args.no_sync:
-        res["sync"] = sources.sync(m, src)
+        try:
+            res["sync"] = sources.sync(m, src)
+        except Exception:
+            m.sources = [s for s in m.sources if s.name != src.name]
+            m.save()
+            raise
         res["available_skills"] = sources.list_skill_dirs(m, src)
+        if not res["available_skills"]:
+            res["warning"] = f"no SKILL.md found under {src.path}/{src.skills_root}. Check --skills-root."
     _out(args, res)
     return 0
 
@@ -99,7 +106,7 @@ def cmd_import(args) -> int:
         raise ManifestError("use <source>/<skill-dir>")
     if skill_dir not in sources.list_skill_dirs(m, src):
         raise ManifestError(f"{skill_dir} not found in source {src_name}. Available: {', '.join(sources.list_skill_dirs(m, src)) or 'none (run sss sync)'}")
-    name = args.as_name or skill_dir
+    name = args.as_name or skill_dir.rsplit("/", 1)[-1]
     if m.has_skill(name):
         raise ManifestError(f"skill already in manifest: {name}")
     sk = Skill(name=name, source=src_name, skill_dir=skill_dir)
