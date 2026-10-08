@@ -3,12 +3,10 @@ The model only judges candidates this module surfaces."""
 from __future__ import annotations
 
 import hashlib
-import math
 import os
 import re
 import subprocess
 from collections import Counter
-from itertools import combinations
 from pathlib import Path
 
 from . import frontmatter, sources as srcmod, status as statusmod
@@ -19,35 +17,11 @@ _MDLINK = re.compile(r"\[[^\]]*\]\(([^)\s#]+)[^)]*\)")
 _TICKPATH = re.compile(r"`((?:\./|\.\./)?[\w.-]+(?:/[\w.-]+)+\.(?:md|sh|py|yaml|yml|json|txt|toml|tf))`")
 _TICK = re.compile(r"`([a-z0-9]+(?:-[a-z0-9]+)+)`")
 _HEAD = re.compile(r"^#{1,6}\s+(.+?)\s*$", re.M)
-_WORD = re.compile(r"[a-z0-9]+")
-STOP = {"the", "a", "an", "and", "or", "for", "to", "of", "in", "on", "with", "this", "that", "skill", "skills", "use", "when",
-        "how", "is", "are", "it", "you", "your", "using", "don", "not", "do", "from", "by", "as", "be", "into", "guide", "fork",
-        "old", "new", "v2", "copy", "t", "s"}
-
-
-def _tokens(*texts: str) -> set[str]:
-    toks = set()
-    for t in texts:
-        toks.update(w for w in _WORD.findall((t or "").lower()) if w not in STOP and len(w) > 1)
-    return toks
-
-
-def _weighted_jaccard(a: set[str], b: set[str], w: dict[str, float]) -> float:
-    inter = sum(w.get(t, 1.0) for t in a & b)
-    union = sum(w.get(t, 1.0) for t in a | b)
-    return inter / union if union else 0.0
-
-
-def _idf(sets: list[set[str]]) -> dict[str, float]:
-    """Tokens shared by many skills (a family prefix like 'google cloud waf', or a
-    heading like 'Usage') say little about any one pair."""
-    n = max(len(sets), 1)
-    df = Counter(t for s in sets for t in s)
-    return {t: math.log((n + 1) / (c + 1)) + 0.1 for t, c in df.items()}
 
 
 def find_skill_dirs(root: Path, exclude: list[str]) -> list[Path]:
-    ex = {os.path.realpath(root / e) for e in exclude}
+    from .links import OWN_SKILLS  # SSS's own command skills are never inventory
+    ex = {os.path.realpath(root / e) for e in exclude} | {os.path.realpath(OWN_SKILLS)}
     found: dict[str, Path] = {}
     for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and os.path.realpath(os.path.join(dirpath, d)) not in ex]
@@ -134,7 +108,7 @@ def scan(m: Manifest | None, root: Path) -> dict:
                 if entry not in missing:
                     missing.append(entry)
         s["missing_dependencies"] = missing
-    return {"root": str(root), "skills": skills, "candidates": candidates(skills), "same_name": [n for n, c in counts.items() if c > 1]}
+    return {"root": str(root), "skills": skills, "identical": identical(skills), "same_name": [n for n, c in counts.items() if c > 1]}
 
 
 def _references(d: Path, body: str, files: list[Path]) -> tuple[list[str], list[str]]:
@@ -156,36 +130,11 @@ def _references(d: Path, body: str, files: list[Path]) -> tuple[list[str], list[
     return refs, broken
 
 
-def candidates(skills: list[dict]) -> list[dict]:
-    """Cheap duplicate candidates. Identical body is certain. Otherwise a pair is a
-    candidate when the distinguishing parts of their names, descriptions or
-    headings overlap, after down-weighting tokens common to many skills."""
-    out = []
+def identical(skills: list[dict]) -> list[dict]:
+    """Groups of skills whose bodies are byte-for-byte the same. This is a fact,
+    not a similarity guess; everything softer is scored by the model in the
+    coverage matrix (see matrix.py)."""
     by_sha: dict[str, list[str]] = {}
     for s in skills:
         by_sha.setdefault(s["body_sha"], []).append(s["id"])
-    for ids in by_sha.values():
-        if len(ids) > 1:
-            out.append({"kind": "identical_body", "skills": sorted(ids), "score": 1.0, "why": "same text"})
-    name_t = {s["id"]: _tokens(s["name"].replace("-", " "), s["dir_name"].replace("-", " ")) for s in skills}
-    desc_t = {s["id"]: _tokens(s["description"]) for s in skills}
-    head_t = {s["id"]: _tokens(*s.get("headings", [])) for s in skills}
-    wn, wd, wh = _idf(list(name_t.values())), _idf(list(desc_t.values())), _idf(list(head_t.values()))
-    for a, b in combinations(skills, 2):
-        if a["body_sha"] == b["body_sha"]:
-            continue
-        n = _weighted_jaccard(name_t[a["id"]], name_t[b["id"]], wn)
-        d = _weighted_jaccard(desc_t[a["id"]], desc_t[b["id"]], wd)
-        h = _weighted_jaccard(head_t[a["id"]], head_t[b["id"]], wh)
-        why = []
-        if n >= 0.5:
-            why.append(f"names overlap {n:.2f}")
-        if d >= 0.35:
-            why.append(f"descriptions overlap {d:.2f}")
-        # Shared headings alone only mean a shared template; they count when the
-        # names or descriptions also lean the same way.
-        if h >= 0.5 and len(head_t[a["id"]] | head_t[b["id"]]) >= 6 and (n >= 0.35 or d >= 0.25):
-            why.append(f"headings overlap {h:.2f}")
-        if why:
-            out.append({"kind": "similar", "skills": sorted([a["id"], b["id"]]), "score": round(max(n, d, h), 2), "why": "; ".join(why)})
-    return sorted(out, key=lambda c: -c["score"])
+    return [{"skills": sorted(ids)} for ids in by_sha.values() if len(ids) > 1]

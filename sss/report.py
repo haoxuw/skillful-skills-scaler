@@ -92,7 +92,20 @@ def _by(data: dict, types) -> list[dict]:
     return [f for f in data["findings"] if f.get("type") in types]
 
 
-def render(data: dict) -> str:
+def warnings_for(data: dict) -> list[str]:
+    out = []
+    for i in data.get("inventory", []):
+        if not i.get("goal"):
+            out.append(f"{i.get('id')}: no goal written; using its description")
+        elif i.get("goal", "").strip() == i.get("description", "").strip():
+            out.append(f"{i.get('id')}: goal is the description copied verbatim")
+    for f in data.get("findings", []):
+        if not f.get("evidence"):
+            out.append(f"{f.get('id')}: finding has no evidence")
+    return out
+
+
+def render(data: dict, matrix=None) -> str:
     data = normalize(data)
     s = data["summary"]
     L: list[str] = ["# Skills reorganize report", ""]
@@ -122,7 +135,7 @@ def render(data: dict) -> str:
     # 3..7: one section per question
     sections = [
         ("3. Out of date", "out_of_date", "These skills are behind their source, or describe things that have since changed."),
-        ("4. Duplicates", "duplicate", "These skills cover the same ground. Keeping both wastes the agent's attention and lets them drift apart."),
+        ("4. Duplicates", "duplicate", "These skills cover the same ground: 0 or 1 star in the coverage matrix (see the appendix). Keeping both wastes the agent's attention and lets them drift apart."),
         ("5. Conflicts", "conflict", "These skills disagree. An agent that loads both will get two answers."),
         ("6. Missing pieces", ("missing_dependency", "broken_reference"), "These skills point at files or other skills that are not here."),
         ("7. Unuseful or out of place", ("out_of_place", "low_value"), "These skills do not belong in this repo, or do not help an agent do anything."),
@@ -170,6 +183,16 @@ def render(data: dict) -> str:
     L += ["One entry per skill. \"Goal\" is what the skill is for, in one line. \"Concerns\" lists every finding above that involves it.", ""]
     for i in data["inventory"]:
         L += _appendix_entry(i, data["findings"])
+
+    # Appendix 2: the coverage matrix
+    L += ["## Appendix: coverage matrix", ""]
+    if matrix:
+        from . import matrix as matrixmod
+        inv, mdata = matrix
+        L += ["Every skill was compared with every other skill and scored by how much they cover the same ground.", ""]
+        L += [matrixmod.render_table(inv, mdata)]
+    else:
+        L += ["No coverage matrix was produced for this run.", ""]
     return "\n".join(L)
 
 
@@ -240,7 +263,8 @@ def _grouped_actions(findings: list[dict]) -> list[str]:
     return lines
 
 
-def render_file(json_path: Path, md_path: Path) -> None:
+def render_file(json_path: Path, md_path: Path, matrix=None) -> list[str]:
     data = json.loads(json_path.read_text(encoding="utf-8"))
-    md_path.write_text(render(data), encoding="utf-8")
+    md_path.write_text(render(data, matrix=matrix), encoding="utf-8")
     json_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return warnings_for(data)

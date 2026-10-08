@@ -38,6 +38,7 @@ A single run writes two files into `.sss/reports/` in the target repo:
 | --- | --- | --- |
 | `.sss/reports/reorganize-report.md` | People | The readable report, structured as described below |
 | `.sss/reports/reorganize-report.json` | Tools | The same findings in a fixed machine-readable shape |
+| `.sss/reports/similarity.json` | Tools | Coverage summaries and pair scores, cached by content hash |
 
 The report is a local working document. `.sss/reports/` is gitignored by
 `sss init`, so reports are never committed. When a pull request is opened,
@@ -46,13 +47,43 @@ the markdown is pasted into the pull request description instead.
 The markdown file is rendered from the JSON file by `sss report`. If they
 ever disagree, the JSON file is authoritative.
 
+## The coverage matrix
+
+SSS does not decide similarity from text. For every pair of skills the agent
+reads the two coverage summaries, and the files for anything close, and scores
+how much they cover the same ground:
+
+| Stars | Meaning |
+| --- | --- |
+| 0 | Same. Interchangeable; one could replace the other with no loss. |
+| 1 | Subset. One covers everything the other does, and more. |
+| 2 | Large overlap. Mostly the same ground from different angles. |
+| 3 | Some overlap. Share a few topics, each has its own core. |
+| 4 | Related. Same area, different jobs. |
+| 5 | Distinct. Nothing meaningful in common. |
+
+Pairs at 0 or 1 star become duplicate findings. Pairs at 2 stars or lower are
+checked for conflicts. The scores and the one-line coverage summary per skill
+live in `.sss/reports/similarity.json`, keyed by the content hash of each
+skill, so a rerun only scores pairs where a skill changed. The full table is
+printed at the end of the report. The number of pairs grows with the square
+of the number of skills; the agent is told to fan out across workers, one
+per skill for summaries and one per row or batch for scores.
+
+## Second opinion
+
+Before the report is rendered, a separate worker with no other context
+re-reads every finding against its quoted evidence as a sceptic, and may
+downgrade confidence or remove findings whose evidence does not hold. The
+summary says that this pass ran and how many findings it changed.
+
 ## Finding types
 
 | Type | Question it answers | Found by | Typical action |
 | --- | --- | --- | --- |
 | `out_of_date` | 1 | SSS status (`stale`, `conflict`, `pending`) for managed skills; the model for content that describes things that have since changed, with evidence | `update` |
-| `duplicate` | 2 | the model, judging candidate pairs from the inventory | `merge` or `remove` |
-| `conflict` | 3 | the model, judging candidate pairs | `patch`, or a decision |
+| `duplicate` | 2 | the coverage matrix: pairs at 0 or 1 star, plus byte-identical bodies | `merge` or `remove` |
+| `conflict` | 3 | the model, checking pairs at 2 stars or lower for disagreement | `patch`, or a decision |
 | `missing_dependency` | 4 | the inventory: a skill names another skill that is not here but is available from a source | `import` |
 | `broken_reference` | 4 | the inventory: a link to a file that does not exist | `fix_link` |
 | `out_of_place` | 5 | the model: the skill is unrelated to this repo, or is in the wrong folder | `move` or `remove` |
@@ -152,6 +183,12 @@ One entry per skill discovered, in inventory order. Each entry has:
 
 This is the part of the report to read when the question is "what do we
 have, and is this particular skill fine?"
+
+### Appendix: coverage matrix
+
+The full star table, one row and one column per skill, followed by each
+skill's coverage summary and a list of every pair at 2 stars or fewer with
+its reason.
 
 ## JSON report structure
 

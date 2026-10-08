@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import deprecate as depmod, generate, inventory, links, patches as patchmod, report, sources, status
+from . import deprecate as depmod, generate, inventory, links, matrix as matrixmod, patches as patchmod, report, sources, status
 from .manifest import DECISIONS, LOCAL_DIR, PATCHES_DIR, REPORTS_DIR, SOURCES_DIR, Manifest, ManifestError, Skill
 from . import gitutil
 
@@ -224,13 +224,60 @@ def cmd_inventory(args) -> int:
     return 0
 
 
+def _matrix_paths(args):
+    root = _root(args)
+    m = Manifest.load(root) if (root / ".sss" / "manifest.yaml").exists() else None
+    return root, m, root / REPORTS_DIR / "similarity.json"
+
+
+def cmd_matrix_pending(args) -> int:
+    root, m, mp = _matrix_paths(args)
+    inv = inventory.scan(m, root)
+    data = matrixmod.load(mp)
+    res = matrixmod.pending(inv, data)
+    res["stars"] = matrixmod.STARS
+    res["identical"] = inv["identical"]
+    print(json.dumps(res, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_matrix_apply(args) -> int:
+    root, m, mp = _matrix_paths(args)
+    inv = inventory.scan(m, root)
+    data = matrixmod.load(mp)
+    if args.file == "-":
+        update = json.load(sys.stdin)
+    else:
+        fp = Path(args.file)
+        if not fp.exists() and (root / fp).exists():
+            fp = root / fp
+        update = json.loads(fp.read_text(encoding="utf-8"))
+    res = matrixmod.apply(inv, data, update)
+    matrixmod.save(mp, data)
+    print(json.dumps({k: v for k, v in res.items() if k != "summaries_needed" and k != "scores_needed"} | {
+        "summaries_still_needed": len(res["summaries_needed"]), "scores_still_needed": len(res["scores_needed"])}, indent=2))
+    return 1 if res["errors"] else 0
+
+
+def cmd_matrix_show(args) -> int:
+    root, m, mp = _matrix_paths(args)
+    inv = inventory.scan(m, root)
+    print(matrixmod.render_table(inv, matrixmod.load(mp)))
+    return 0
+
+
 def cmd_report(args) -> int:
     root = _root(args)
     json_path = Path(args.json_file) if args.json_file else root / REPORTS_DIR / "reorganize-report.json"
     out = Path(args.out) if args.out else root / REPORTS_DIR / "reorganize-report.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    report.render_file(json_path, out)
+    mp = root / REPORTS_DIR / "similarity.json"
+    m = Manifest.load(root) if (root / ".sss" / "manifest.yaml").exists() else None
+    inv = inventory.scan(m, root) if mp.exists() else None
+    warnings = report.render_file(json_path, out, matrix=(inv, matrixmod.load(mp)) if inv else None)
     print(f"wrote {out}")
+    for w in warnings:
+        print(f"warning: {w}", file=sys.stderr)
     return 0
 
 
@@ -285,6 +332,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("links", help="re-link skills into output and mirror dirs"); s.add_argument("--copy", action="store_true"); s.set_defaults(fn=cmd_links)
     s = sub.add_parser("inventory", help="JSON of every skill in the repo plus duplicate candidates"); s.set_defaults(fn=cmd_inventory)
+    s = sub.add_parser("matrix", help="coverage matrix bookkeeping: pending work, apply agent scores, show the table")
+    ms = s.add_subparsers(dest="sub", required=True)
+    mp_ = ms.add_parser("pending", help="skills needing a summary and pairs needing a 0-5 star score"); mp_.set_defaults(fn=cmd_matrix_pending)
+    ma = ms.add_parser("apply", help="merge {summaries:{id:text}, scores:[{a,b,stars,reason}]} from a JSON file or '-'"); ma.add_argument("file"); ma.set_defaults(fn=cmd_matrix_apply)
+    msh = ms.add_parser("show", help="print the matrix as markdown"); msh.set_defaults(fn=cmd_matrix_show)
+
     s = sub.add_parser("report", help="render the reorganize report (markdown) from its JSON; both live in .sss/reports/, which is gitignored")
     s.add_argument("json_file", nargs="?", help="default .sss/reports/reorganize-report.json"); s.add_argument("--out", help="default .sss/reports/reorganize-report.md"); s.set_defaults(fn=cmd_report)
     s = sub.add_parser("deprecate", help="remove a skill, its patches, output and links; list references"); s.add_argument("skill"); s.add_argument("--keep-patches", action="store_true"); s.set_defaults(fn=cmd_deprecate)

@@ -257,6 +257,7 @@ metadata:
 | `conflict` | nothing | `status: conflict` with a reason |
 | `patch new` | manifest | a patch template, `status: stale` |
 | `inventory` | the whole repo except `.sss/` and mirrors | nothing; prints JSON |
+| `matrix pending` / `apply` / `show` | inventory, `.sss/reports/similarity.json` | the cached 0-5 star coverage scores the agent produces |
 | `report` | findings JSON | the markdown report |
 | `deprecate` | manifest | removes entry, patches, output, links; prints references |
 

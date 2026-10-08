@@ -31,7 +31,11 @@ that works too. Always pass `--json` when you need to read the result.
    ```
    This is a straight copy. No judgement needed.
 
-3. **Patched skills** (`patched: true`) that are `stale` or `pending`, one at a time:
+3. **Patched skills** (`patched: true`) that are `stale` or `pending`. Each is
+   independent of the others, so fan out: if your runtime can run subagents or
+   parallel tasks, give each patched skill its own worker that does everything
+   in this step and returns `finalized`, `failed` or `conflict` with one line of
+   explanation. If you cannot fan out, do them one at a time. For each skill:
    ```bash
    python3 .sss/tool/sss.py plan <skill>
    ```

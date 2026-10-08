@@ -247,6 +247,34 @@ def test_copy_mode(source: Path, target: Path):
     assert (mirror / "SKILL.md").read_text() == (target / ".agents" / "skills" / "salad" / "SKILL.md").read_text()
 
 
+def test_matrix(source: Path, target: Path):
+    assert run(target, "init")[0] == 0
+    assert run(target, "source", "add", "cookbook", f"file://{source}")[0] == 0
+    for sk in ("salad", "omelette"):
+        assert run(target, "import", f"cookbook/{sk}")[0] == 0
+    rc, pend = run(target, "matrix", "pending")
+    assert rc == 0 and pend["pairs_total"] == 1 and len(pend["summaries_needed"]) == 2 and len(pend["scores_needed"]) == 1
+    (target / "scores.json").write_text(json.dumps({
+        "summaries": {"salad": "Makes a salad.", "omelette": "Makes an omelette."},
+        "scores": [{"a": "salad", "b": "omelette", "stars": 4, "reason": ""}]}))
+    rc, res = run(target, "matrix", "apply", "scores.json")
+    assert rc == 0 and res["scores_still_needed"] == 0 and res["summaries_still_needed"] == 0, res
+    # a low score without a reason is rejected
+    (target / "bad.json").write_text(json.dumps({"scores": [{"a": "salad", "b": "omelette", "stars": 1}]}))
+    rc, res = run(target, "matrix", "apply", "bad.json")
+    assert rc == 1 and res["errors"]
+    # changing a skill invalidates only its pairs
+    (target / ".sss" / "sources" / "cookbook" / "skills" / "salad" / "SKILL.md").write_text(SALAD + "\nAdd nuts.\n")
+    assert run(target, "generate", "salad")[0] == 0
+    rc, pend = run(target, "matrix", "pending")
+    assert [x["id"] for x in pend["summaries_needed"]] == ["salad"] and len(pend["scores_needed"]) == 1
+    # the report appends the matrix
+    (target / ".sss" / "reports" / "reorganize-report.json").write_text(json.dumps({"inventory": [], "findings": []}))
+    assert run(target, "report")[0] == 0
+    md = (target / ".sss" / "reports" / "reorganize-report.md").read_text()
+    assert "## Appendix: coverage matrix" in md and "| **S1** omelette |" in md
+
+
 def test_report_render(tmp_path: Path):
     data = {
         "inventory": [{"id": "a", "source": "local", "path": "x/a", "files": 1, "words": 10},
