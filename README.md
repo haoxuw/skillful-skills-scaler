@@ -69,3 +69,10 @@ The deterministic steps (sync, staleness, inventory, deprecate) are a small Pyth
 
 - [docs/integration.md](docs/integration.md): what SSS puts into a repo and how the commands work against it.
 - [docs/report-schema.md](docs/report-schema.md): the shape of the reorganize report.
+
+## License
+
+Copyright 2026 Google LLC. Source code is licensed under the
+[Apache License, Version 2.0](LICENSE). Documentation under `docs/` is licensed
+under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). This is not an
+officially supported Google product.
