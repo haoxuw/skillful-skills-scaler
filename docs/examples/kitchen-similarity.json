@@ -1,0 +1,203 @@
+{
+  "schema_version": 1,
+  "skills": {
+    "gcloud": {
+      "body_sha": "d7d163c32feb",
+      "summary": "Safety rules for any use of the gcloud CLI on Google Cloud: check leaf-level syntax with `gcloud help` before every command, always pass `--quiet` and `--project`, never run a `list` without `--limit`, `--filter` or `--format`, and never run delete, IAM, billing, org or KMS commands without a human saying yes. Two reference files cover install and authentication, and the remote Cloud CLI MCP server. It does not describe how to configure any particular product such as GKE."
+    },
+    "gke-cluster-creation": {
+      "body_sha": "867d4d62ff2b",
+      "summary": "Walks an agent through creating a GKE cluster: gather project, region and name, pick Autopilot or Standard, then use one of five ready-made templates (golden-path Autopilot, Autopilot dev/test, Standard regional, L4 GPU, A3 hypercompute) given both as a gcloud command and as an MCP `create_cluster` payload. A team patch sets the default region to us-central1 and project to kitchen-prod-1234. It lists security, cost and HA best practices in brief and does not cover app deployment, detailed monitoring, or workload reliability."
+    },
+    "gke-golden-path": {
+      "body_sha": "494d19a6b2dd",
+      "summary": "The reference list of golden-path Autopilot cluster settings (private nodes, Secret Manager, Dataplane V2, full monitoring suite, VPA, Stateful HA and so on), which settings a customer may change, guardrails, and a section on what to say about node upgrade disruption (PDBs, replicas, readiness probes, surge settings). A team patch makes clusters always regional and pins project kitchen-prod-1234. Used to design or audit a cluster against defaults; it does not walk through the create flow or cover workload autoscaling."
+    },
+    "gke-observability": {
+      "body_sha": "cef31da886e4",
+      "summary": "Full guide to GKE monitoring and logging: the golden-path monitoring component list, how to enable control-plane metrics with `--monitoring` and the CLI versus API spelling trap, Managed Prometheus, `kubectl top`, `gcloud logging read` queries, alert thresholds, cost notes, tracing and profiling, LQL examples, and a long Managed Prometheus troubleshooting section (pods, PodMonitoring, permissions, rules, Grafana, quota). It does not cover app logging libraries or non-Google APMs."
+    },
+    "gke-observability-fork": {
+      "body_sha": "9e7f3f615c1f",
+      "summary": "A short nine-step checklist for GKE observability: check logging and monitoring config, enable Managed Prometheus, confirm workload logs reach Cloud Logging, suggest dashboards and alerts, recommend Cloud Trace and Cloud Profiler, two LQL examples, enable control-plane metrics, and enable Dataplane V2 observability. It has no troubleshooting, no cost guidance, and no table of golden-path defaults."
+    },
+    "gke-reliability": {
+      "body_sha": "32d989e72c67",
+      "summary": "GKE workload reliability with MCP-first and kubectl fallback commands: verify the cluster is regional, Pod Disruption Budgets, liveness, readiness and startup probes with recommended timings, graceful shutdown with a preStop hook, zone and node topology spread, minimum replica counts by workload type, and a table of golden-path reliability defaults. It hands manifest generation, backup and DR, and maintenance windows to other skills."
+    },
+    "gke-reliability-fork": {
+      "body_sha": "012623a2d2cc",
+      "summary": "A short checklist for GKE reliability: verify the cluster is regional, a PDB example, which probes to have and how to check for them, a one-line note on graceful shutdown, a zone topology spread example, and a gcloud command to set a maintenance window. No MCP commands, no probe timings, no replica guidance."
+    }
+  },
+  "pairs": {
+    "gcloud|gke-cluster-creation": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "d7d163c32feb",
+        "867d4d62ff2b"
+      ]
+    },
+    "gcloud|gke-golden-path": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "d7d163c32feb",
+        "494d19a6b2dd"
+      ]
+    },
+    "gcloud|gke-observability": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "d7d163c32feb",
+        "cef31da886e4"
+      ]
+    },
+    "gcloud|gke-observability-fork": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "d7d163c32feb",
+        "9e7f3f615c1f"
+      ]
+    },
+    "gcloud|gke-reliability": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "d7d163c32feb",
+        "32d989e72c67"
+      ]
+    },
+    "gcloud|gke-reliability-fork": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "d7d163c32feb",
+        "012623a2d2cc"
+      ]
+    },
+    "gke-cluster-creation|gke-golden-path": {
+      "stars": 2,
+      "reason": "Both define the golden-path Autopilot defaults, the same required inputs, the same Day-0 warnings and the same team project id; cluster-creation adds templates and golden-path adds the full settings table and upgrade disruption advice.",
+      "scored_with": [
+        "867d4d62ff2b",
+        "494d19a6b2dd"
+      ]
+    },
+    "gke-cluster-creation|gke-observability": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "867d4d62ff2b",
+        "cef31da886e4"
+      ]
+    },
+    "gke-cluster-creation|gke-observability-fork": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "867d4d62ff2b",
+        "9e7f3f615c1f"
+      ]
+    },
+    "gke-cluster-creation|gke-reliability": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "867d4d62ff2b",
+        "32d989e72c67"
+      ]
+    },
+    "gke-cluster-creation|gke-reliability-fork": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "867d4d62ff2b",
+        "012623a2d2cc"
+      ]
+    },
+    "gke-golden-path|gke-observability": {
+      "stars": 3,
+      "reason": "",
+      "scored_with": [
+        "494d19a6b2dd",
+        "cef31da886e4"
+      ]
+    },
+    "gke-golden-path|gke-observability-fork": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "494d19a6b2dd",
+        "9e7f3f615c1f"
+      ]
+    },
+    "gke-golden-path|gke-reliability": {
+      "stars": 3,
+      "reason": "",
+      "scored_with": [
+        "494d19a6b2dd",
+        "32d989e72c67"
+      ]
+    },
+    "gke-golden-path|gke-reliability-fork": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "494d19a6b2dd",
+        "012623a2d2cc"
+      ]
+    },
+    "gke-observability|gke-observability-fork": {
+      "stars": 1,
+      "reason": "Every one of the fork's nine steps (audit config, Managed Prometheus, workload logs, dashboards, tracing, profiling, LQL, control-plane metrics, Dataplane V2) appears in gke-observability with more detail, which also adds cost, alert thresholds and GMP troubleshooting; the fork's only extra is a one-line tip to log as JSON.",
+      "scored_with": [
+        "cef31da886e4",
+        "9e7f3f615c1f"
+      ]
+    },
+    "gke-observability|gke-reliability": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "cef31da886e4",
+        "32d989e72c67"
+      ]
+    },
+    "gke-observability|gke-reliability-fork": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "cef31da886e4",
+        "012623a2d2cc"
+      ]
+    },
+    "gke-observability-fork|gke-reliability": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "9e7f3f615c1f",
+        "32d989e72c67"
+      ]
+    },
+    "gke-observability-fork|gke-reliability-fork": {
+      "stars": 4,
+      "reason": "",
+      "scored_with": [
+        "9e7f3f615c1f",
+        "012623a2d2cc"
+      ]
+    },
+    "gke-reliability|gke-reliability-fork": {
+      "stars": 1,
+      "reason": "Five of the fork's six workflows (regional check, PDB, probes, graceful shutdown, topology spread) appear in gke-reliability with more detail plus MCP commands and replica guidance; the fork's only extra is a six-line maintenance-window command, which gke-reliability hands to the gke-upgrades skill.",
+      "scored_with": [
+        "32d989e72c67",
+        "012623a2d2cc"
+      ]
+    }
+  }
+}
