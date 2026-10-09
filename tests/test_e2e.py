@@ -288,6 +288,24 @@ def test_matrix(source: Path, target: Path):
     assert "## Appendix: coverage matrix" in md and "| **S1** omelette |" in md
 
 
+def test_inventory_when_claude_skills_is_a_symlink_to_agents_skills(target: Path):
+    # Some repos point .claude/skills at .agents/skills as one directory link.
+    (target / ".agents" / "skills" / "local-one").mkdir(parents=True)
+    (target / ".agents" / "skills" / "local-one" / "SKILL.md").write_text("---\nname: local-one\ndescription: One.\n---\n\nBody.\n")
+    (target / ".claude").mkdir()
+    os.symlink("../.agents/skills", target / ".claude" / "skills")
+    assert run(target, "init")[0] == 0
+    rc, inv = run(target, "inventory")
+    assert rc == 0 and [s["id"] for s in inv["skills"]] == ["local-one"], inv
+
+
+def test_frontmatter_lenient():
+    bad = "---\nname: audit\ndescription: Use when asked to run an audit: a run collects and publishes.\nmetadata:\n  version: 1\n---\n\nBody.\n"
+    meta, body = frontmatter.split(bad)
+    assert meta["name"] == "audit" and meta["description"].startswith("Use when asked") and "_frontmatter_error" in meta
+    assert body.strip() == "Body."
+
+
 def test_report_render(tmp_path: Path):
     data = {
         "inventory": [{"id": "a", "source": "local", "path": "x/a", "files": 1, "words": 10},

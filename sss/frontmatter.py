@@ -22,13 +22,39 @@ import yaml
 _FM = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n?", re.S)
 
 
+def _lenient(raw: str) -> dict:
+    """Best-effort parse for front matter PyYAML rejects, most often an unquoted
+    colon inside a long description. Top-level `key: value` lines only; indented
+    continuation lines are folded into the previous value; nested blocks are
+    kept as raw text under their key."""
+    data: dict = {}
+    key = None
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        if line[:1] not in (" ", "\t") and ":" in line:
+            k, _, v = line.partition(":")
+            key = k.strip()
+            v = v.strip()
+            if v.startswith(("|", ">")):
+                v = ""
+            data[key] = v.strip("'\"")
+        elif key is not None:
+            data[key] = (data[key] + " " + line.strip()).strip()
+    return data
+
+
 def split(text: str) -> tuple[dict, str]:
     m = _FM.match(text)
     if not m:
         return {}, text
-    data = yaml.safe_load(m.group(1)) or {}
-    if not isinstance(data, dict):
-        data = {}
+    try:
+        data = yaml.safe_load(m.group(1)) or {}
+        if not isinstance(data, dict):
+            data = {}
+    except yaml.YAMLError as e:
+        data = _lenient(m.group(1))
+        data["_frontmatter_error"] = str(e).splitlines()[0] if str(e) else "invalid YAML"
     return data, text[m.end():]
 
 
