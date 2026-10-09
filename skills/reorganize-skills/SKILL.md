@@ -10,7 +10,10 @@ metadata:
 
 You are running SSS (Skillful-skills-scaler). The CLI does the bookkeeping. You
 do the judgement, and you write findings in the fixed shape described in
-`.sss/tool/docs/report-schema.md`. Read that file first.
+`.sss/tool/docs/report-schema.md`. Read that file first. The report itself
+follows the template next to this file, `templates/reorganize-report.md`;
+`sss report` fills its placeholders from your JSON, so you never write the
+markdown by hand. Read the template once so you know what each section asks.
 
 Run the CLI as `python3 .sss/tool/sss.py` from the repo root. All report files
 live in `.sss/reports/`, which is gitignored. Never commit them.

@@ -44,8 +44,13 @@ The report is a local working document. `.sss/reports/` is gitignored by
 `sss init`, so reports are never committed. When a pull request is opened,
 the markdown is pasted into the pull request description instead.
 
-The markdown file is rendered from the JSON file by `sss report`. If they
-ever disagree, the JSON file is authoritative.
+The markdown file is rendered from the JSON file by `sss report`, which fills
+the template at `skills/reorganize-skills/templates/reorganize-report.md`.
+The template is a resource of the reorganize skill, so the agent and the
+renderer share one definition of the report's shape. To change wording or
+order of sections, edit the template; to change what a block contains, edit
+the renderer. If markdown and JSON ever disagree, the JSON file is
+authoritative.
 
 ## The coverage matrix
 
