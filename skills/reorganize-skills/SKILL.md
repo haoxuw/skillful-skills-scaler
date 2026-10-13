@@ -92,7 +92,10 @@ the same steps in sequence. The results must be identical either way.
    - every `missing_dependencies` entry is a `missing_dependency` finding with an
      `import` action;
    - every `broken_references` entry is a `broken_reference` finding with a
-     `fix_link` action.
+     `fix_link` action;
+   - every skill with a `frontmatter_error` is an `invalid_frontmatter` finding
+     (section 6, unuseful or out of place: a runtime may skip a skill whose
+     front matter does not parse) with a `patch` action, quoting the error.
 
 7. **Judge every skill on its own.** Fan out one worker per skill. Each writes
    the skill's one-line `goal` for the inventory, in words a newcomer would

@@ -13,8 +13,9 @@
 # limitations under the License.
 """Render reorganize-report.md from reorganize-report.json, per docs/report-schema.md.
 
-The report answers, in order: are any skills out of date, duplicated, conflicting,
-missing pieces, or unuseful and out of place."""
+The report answers, in order: do any skills conflict, are any out of date, duplicated,
+missing pieces they refer to, or unuseful and out of place. The section order and
+wording live in the template; this module only produces the blocks."""
 from __future__ import annotations
 
 import datetime as _dt
@@ -23,9 +24,9 @@ import json
 import re
 from pathlib import Path
 
-TYPES = ("out_of_date", "duplicate", "conflict", "missing_dependency", "broken_reference", "out_of_place", "low_value")
+TYPES = ("out_of_date", "duplicate", "conflict", "missing_dependency", "broken_reference", "out_of_place", "low_value", "invalid_frontmatter")
 PREFIX = {"out_of_date": "old", "duplicate": "dup", "conflict": "conf", "missing_dependency": "dep",
-          "broken_reference": "ref", "out_of_place": "place", "low_value": "low"}
+          "broken_reference": "ref", "out_of_place": "place", "low_value": "low", "invalid_frontmatter": "fm"}
 VERBS = {"move": "Move", "merge": "Merge", "remove": "Remove", "patch": "Patch", "rename": "Rename",
          "fix_link": "Fix link", "update": "Update", "import": "Import", "none": "No change"}
 CONFLICT_OPTIONS = [
@@ -39,7 +40,7 @@ QUESTIONS = [  # same order as the report sections
     ("out_of_date", "Are any skills out of date?"),
     ("duplicate", "Are any skills duplicated?"),
     (("missing_dependency", "broken_reference"), "Are any skills missing pieces they refer to?"),
-    (("out_of_place", "low_value"), "Are any skills unuseful or out of place?"),
+    (("out_of_place", "low_value", "invalid_frontmatter"), "Are any skills unuseful or out of place?"),
 ]
 
 
@@ -98,10 +99,6 @@ def normalize(data: dict) -> dict:
     return data
 
 
-def _nothing(L: list[str]) -> None:
-    L += ["Nothing found.", ""]
-
-
 def _by(data: dict, types) -> list[dict]:
     types = (types,) if isinstance(types, str) else types
     return [f for f in data["findings"] if f.get("type") in types]
@@ -134,7 +131,7 @@ def blocks(data: dict, matrix=None) -> dict:
     s = data["summary"]
     B: dict[str, str] = {}
     B["repo"] = str(data.get("repo") or "this repo")
-    B["generated_at"] = str(data.get("generated_at") or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+    B["generated_at"] = str(data.get("generated_at") or "(not recorded)")
     B["summary_text"] = data.get("summary_text") or (
         f"We looked at {s['skills_found']} skills from {s['sources']} sources. "
         + ("Nothing needs your attention." if s["decisions_needed"] == 0 else f"{s['decisions_needed']} items need a decision from you."))
@@ -155,7 +152,7 @@ def blocks(data: dict, matrix=None) -> dict:
     B["inventory_table"] = _block(L)
 
     for key_, types in (("out_of_date", "out_of_date"), ("duplicates", "duplicate"), ("conflicts", "conflict"),
-                        ("missing_pieces", ("missing_dependency", "broken_reference")), ("out_of_place", ("out_of_place", "low_value"))):
+                        ("missing_pieces", ("missing_dependency", "broken_reference")), ("out_of_place", ("out_of_place", "low_value", "invalid_frontmatter"))):
         L = []
         for f in _by(data, types):
             L += _finding_block(f, show_options=(f.get("type") == "conflict"))
@@ -191,7 +188,13 @@ _PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 def render(data: dict, matrix=None, template: str | None = None) -> str:
     """Fill the report template. The template is a resource of the reorganize
     skill, so the agent and the renderer share one definition of the shape."""
-    tpl = template if template is not None else TEMPLATE.read_text(encoding="utf-8")
+    if template is None:
+        if not TEMPLATE.is_file():
+            raise FileNotFoundError(
+                f"report template not found at {TEMPLATE}. SSS must run from its checkout "
+                "(the .sss/tool submodule), which carries the skills/ folder; a bare package install does not.")
+        template = TEMPLATE.read_text(encoding="utf-8")
+    tpl = template
     B = blocks(data, matrix)
     missing = []
 
@@ -208,7 +211,7 @@ def render(data: dict, matrix=None, template: str | None = None) -> str:
 
 
 _SHORT = {"out_of_date": "out of date", "duplicate": "duplicate", "conflict": "conflicts", "missing_dependency": "missing dependency",
-          "broken_reference": "broken link", "out_of_place": "out of place", "low_value": "low value"}
+          "broken_reference": "broken link", "out_of_place": "out of place", "low_value": "low value", "invalid_frontmatter": "invalid front matter"}
 
 
 def _one_line(text: str, limit: int = 160) -> str:
@@ -274,8 +277,12 @@ def _grouped_actions(findings: list[dict]) -> list[str]:
     return lines
 
 
-def render_file(json_path: Path, md_path: Path, matrix=None) -> list[str]:
+def render_file(json_path: Path, md_path: Path, matrix=None, repo: str | None = None) -> list[str]:
     data = json.loads(json_path.read_text(encoding="utf-8"))
+    # Stamp once and persist, so re-rendering unchanged JSON gives identical markdown.
+    data.setdefault("generated_at", _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+    if repo and not data.get("repo"):
+        data["repo"] = repo
     md_path.write_text(render(data, matrix=matrix), encoding="utf-8")
     json_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return warnings_for(data)

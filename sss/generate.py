@@ -40,6 +40,10 @@ def _copy_tree(src: Path, dst: Path) -> None:
 def _stamp(m: Manifest, skill: Skill, out_dir: Path, model: str | None = None) -> dict:
     src = m.source(skill.source)
     meta, body = frontmatter.read(out_dir / "SKILL.md")
+    if not frontmatter.is_valid(meta):
+        raise ManifestError(
+            f"{skill.name}: SKILL.md front matter is not valid YAML ({meta['_frontmatter_error']}). "
+            "Fix it in a patch (or upstream) before generating; SSS will not write a damaged skill.")
     meta["name"] = skill.name
     metadata = meta.get("metadata") if isinstance(meta.get("metadata"), dict) else {}
     prov = {
@@ -70,7 +74,11 @@ def copy(m: Manifest, skill: Skill) -> dict:
         raise ManifestError(f"source skill not found: {m.source_skill_rel(skill)}")
     out_dir = m.root / m.output_rel(skill)
     _copy_tree(src_dir, out_dir)
-    prov = _stamp(m, skill, out_dir)
+    try:
+        prov = _stamp(m, skill, out_dir)
+    except ManifestError:
+        shutil.rmtree(out_dir, ignore_errors=True)   # never leave a half-made skill behind
+        raise
     return {"skill": skill.name, "action": "copied", "output": m.output_rel(skill), "provenance": prov}
 
 

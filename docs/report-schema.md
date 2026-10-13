@@ -93,6 +93,7 @@ summary says that this pass ran and how many findings it changed.
 | `broken_reference` | 4 | the inventory: a link to a file that does not exist | `fix_link` |
 | `out_of_place` | 5 | the model: the skill is unrelated to this repo, or is in the wrong folder | `move` or `remove` |
 | `low_value` | 5 | the model: the skill does not help an agent do anything, for example it is vague, trivially short, or only links elsewhere | `remove` or `patch` |
+| `invalid_frontmatter` | 5 | the inventory: the SKILL.md front matter is not valid YAML, so a runtime may skip the skill | `patch` |
 
 ## Markdown report structure
 
@@ -234,10 +235,10 @@ its reason. Pairs at 3 stars or more appear only here.
 
 Field rules:
 
-- `findings[].type` is one of the seven types in the table above.
+- `findings[].type` is one of the eight types in the table above.
 - `findings[].id` is stable across runs. It is a short hash of the type plus
   the sorted skill IDs involved, with a type prefix such as `dup-`, `conf-`,
-  `old-`, `dep-`, `ref-`, `place-`, `low-`. A finding keeps its ID until the
+  `old-`, `dep-`, `ref-`, `place-`, `low-`, `fm-`. A finding keeps its ID until the
   underlying skills change, so a decision recorded against it still applies
   next run.
 - `findings[].confidence` is one of `confident`, `likely`, `unsure`. Words,
@@ -253,6 +254,8 @@ Field rules:
 - Every finding has at least one `evidence` entry. A finding without
   evidence is a bug in the tool, not a finding.
 - `summary` is computed by the renderer and overwritten on every render.
+- `generated_at` and `repo` are written into the JSON by the first render and
+  kept, so rendering the same JSON twice gives the same markdown.
 - `inventory[].goal` is optional and written by the agent. Keep it to one
   sentence a newcomer would understand.
 - When two skills share a name, their `id` is `name (path)` so findings can
