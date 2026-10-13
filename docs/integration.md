@@ -5,7 +5,7 @@ and how the three commands work against them. "Target repo" means any repo that
 wants to use skills managed by SSS. SSS is generic: it does not care what the
 target repo does, and it works with Claude Code, Codex and Gemini CLI.
 
-## For non-technical readers
+## High level summary
 
 Think of the source of truth as a cookbook, and the repo as a kitchen. The
 kitchen wants its own copy of the recipes, a few local changes to some of them,

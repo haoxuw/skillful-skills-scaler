@@ -4,7 +4,7 @@ This document defines the report that the `reorganize` command produces.
 The report is output (A) in the README. Output (B), the pull request, is
 generated from the same findings, so the two always agree.
 
-## For non-technical readers
+## High level summary
 
 When many skills are collected from different places, some fall behind the
 place they came from, some say the same thing twice, some disagree with each
