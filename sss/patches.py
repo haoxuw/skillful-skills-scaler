@@ -22,6 +22,7 @@ Front matter:
     - not_contains: "literal text"      # deterministic
     - regex: "pattern"                  # deterministic, searched in SKILL.md
     - file_exists: "scripts/x.sh"       # deterministic, relative to the skill dir
+    - {contains: "x", file: "reference/a.md"}   # any text check may name a file in the skill dir
 """
 from __future__ import annotations
 
@@ -76,21 +77,46 @@ def template(target: str, intent: str) -> str:
     )
 
 
+def validate(checks: list) -> list[str]:
+    """Shape errors in a patch's checks, as messages. Empty means well formed."""
+    errors = []
+    for c in checks:
+        if isinstance(c, str):
+            continue
+        if not isinstance(c, dict):
+            errors.append(f"check must be a sentence or a one-key mapping, got {c!r}"); continue
+        kinds = [k for k in c if k != "file"]
+        if len(kinds) != 1 or kinds[0] not in DETERMINISTIC:
+            errors.append(f"check must have exactly one of {DETERMINISTIC} (plus optional 'file'), got keys {sorted(c)}")
+    return errors
+
+
 def run_deterministic(skill_dir: Path, checks: list[dict]) -> list[str]:
     """Return a list of failure messages. Empty means all passed."""
-    failures: list[str] = []
-    skill_md = skill_dir / "SKILL.md"
-    text = skill_md.read_text(encoding="utf-8") if skill_md.exists() else ""
+    failures: list[str] = validate(checks)
+    if failures:
+        return failures
+    cache: dict[str, str] = {}
+
+    def text_of(rel: str) -> str:
+        if rel not in cache:
+            p = skill_dir / rel
+            cache[rel] = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
+        return cache[rel]
+
     for c in checks:
-        (kind, value), = c.items()
+        if not isinstance(c, dict):
+            continue
+        where = str(c.get("file", "SKILL.md"))
+        kind = next(k for k in c if k != "file")
+        value = c[kind]
+        text = text_of(where)
         if kind == "contains" and str(value) not in text:
-            failures.append(f"contains: {value!r} not found in SKILL.md")
+            failures.append(f"contains: {value!r} not found in {where}")
         elif kind == "not_contains" and str(value) in text:
-            failures.append(f"not_contains: {value!r} is present in SKILL.md")
+            failures.append(f"not_contains: {value!r} is present in {where}")
         elif kind == "regex" and not re.search(str(value), text, re.M):
-            failures.append(f"regex: {value!r} did not match SKILL.md")
+            failures.append(f"regex: {value!r} did not match {where}")
         elif kind == "file_exists" and not (skill_dir / str(value)).exists():
             failures.append(f"file_exists: {value!r} missing under {skill_dir.name}/")
-        elif kind not in DETERMINISTIC:
-            failures.append(f"unknown check type: {kind}")
     return failures

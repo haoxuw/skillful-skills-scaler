@@ -92,6 +92,9 @@ def plan(m: Manifest, skill: Skill) -> dict:
     for p in loaded:
         if p.target and p.target != skill.name:
             raise ManifestError(f"patch {p.path} targets {p.target!r}, not {skill.name!r}")
+        bad = patchmod.validate(p.checks)
+        if bad:
+            raise ManifestError(f"patch {p.path} has malformed checks: " + "; ".join(bad))
 
     prev = provenance(m, skill)
     previous_source_dir = None
@@ -111,7 +114,7 @@ def plan(m: Manifest, skill: Skill) -> dict:
     return {
         "skill": skill.name,
         "source": {"name": src.name, "dir": src_rel, "commit": src.synced_commit},
-        "output_dir": out_rel,
+        "output": out_rel,
         "previous_output_exists": (out_dir / "SKILL.md").is_file(),
         "previous_source_dir": previous_source_dir,
         "patches": [p.to_dict() for p in loaded],

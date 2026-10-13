@@ -59,6 +59,21 @@ def sync_links(m: Manifest, copy: bool | None = None) -> list[dict]:
     results = []
     out = m.root / m.skills_dir
     out.mkdir(parents=True, exist_ok=True)
+    # Prune links whose target vanished (for example a renamed SSS command skill),
+    # so an upgrade never leaves a broken skill behind.
+    for d in [m.skills_dir, *m.mirror_dirs]:
+        base = m.root / d
+        if not base.is_dir():
+            continue
+        for entry in base.iterdir():
+            if entry.is_symlink() and not entry.exists():
+                raw = os.readlink(entry)
+                target = os.path.realpath(os.path.join(entry.parent, raw))
+                ours = (target.startswith(str(OWN_SKILLS.resolve())) or target.startswith(os.path.realpath(out))
+                        or "/.sss/tool/skills/" in raw.replace(os.sep, "/") + "/" or raw.replace(os.sep, "/").startswith(".sss/tool/skills/"))
+                if ours:
+                    entry.unlink()
+                    results.append({"skill": entry.name, "into": d, "result": "pruned dangling link"})
     # SSS's own command skills go into skills_dir as links.
     own = []
     if OWN_SKILLS.is_dir():

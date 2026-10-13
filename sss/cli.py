@@ -93,7 +93,7 @@ def cmd_source_add(args) -> int:
     res = {"source": src.to_dict()}
     if src.mode != "local" and not args.no_sync:
         try:
-            res["sync"] = sources.sync(m, src)
+            res["fetched"] = sources.sync(m, src)
         except Exception:
             m.sources = [s for s in m.sources if s.name != src.name]
             m.save()
@@ -127,7 +127,10 @@ def cmd_fetch(args) -> int:
     m = Manifest.load(_root(args))
     todo = [m.source(args.source)] if args.source else m.sources
     res = [sources.sync(m, s) for s in todo]
-    _out(args, {"fetched": res, "status": status.check_all(m)})
+    payload = {"fetched": res, "status": status.check_all(m)}
+    if args.cmd == "sync":            # compatibility alias keeps the old key too
+        payload["synced"] = res
+    _out(args, payload)
     return 0
 
 
@@ -138,7 +141,7 @@ def cmd_import(args) -> int:
     if not skill_dir:
         raise ManifestError("use <source>/<skill-dir>")
     if skill_dir not in sources.list_skill_dirs(m, src):
-        raise ManifestError(f"{skill_dir} not found in source {src_name}. Available: {', '.join(sources.list_skill_dirs(m, src)) or 'none (run sss sync)'}")
+        raise ManifestError(f"{skill_dir} not found in source {src_name}. Available: {', '.join(sources.list_skill_dirs(m, src)) or 'none (run sss fetch)'}")
     name = args.as_name or skill_dir.rsplit("/", 1)[-1]
     if m.has_skill(name):
         raise ManifestError(f"skill already in manifest: {name}")
@@ -329,8 +332,7 @@ def build_parser() -> argparse.ArgumentParser:
     rm = ss.add_parser("remove"); rm.add_argument("name"); rm.add_argument("--force", action="store_true", help="also drop skills imported from it")
     rm.set_defaults(fn=cmd_source_remove)
 
-    s = sub.add_parser("fetch", help="refresh source replicas and report staleness (one-way, pull only)"); s.add_argument("source", nargs="?"); s.set_defaults(fn=cmd_fetch)
-    s = sub.add_parser("sync", help="alias of fetch, kept for older skills"); s.add_argument("source", nargs="?"); s.set_defaults(fn=cmd_fetch)
+    s = sub.add_parser("fetch", aliases=["sync"], help="refresh source replicas and report staleness (one-way, pull only); `sync` is an alias"); s.add_argument("source", nargs="?"); s.set_defaults(fn=cmd_fetch)
 
     s = sub.add_parser("import", help="add <source>/<skill-dir> to the manifest")
     s.add_argument("ref"); s.add_argument("--as", dest="as_name"); s.add_argument("--patch", metavar="INTENT", help="also create a patch with this intent")

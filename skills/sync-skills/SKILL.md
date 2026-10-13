@@ -42,7 +42,9 @@ Work out which of these the request contains, and do them in this order:
    python3 .sss/tool/sss.py --json source add <name> <url> --ref <branch> --skills-root <dir>
    ```
    The result lists `available_skills`. If the list is empty, the skills root is
-   wrong; try again. Choose copy mode unless the user asks for a submodule.
+   wrong: run `source add` again with the same name and the right
+   `--skills-root`; a source nothing depends on yet is corrected in place.
+   Choose copy mode unless the user asks for a submodule.
 
 2. **Import skills.** For each skill the user wants:
    ```bash
@@ -62,7 +64,9 @@ Work out which of these the request contains, and do them in this order:
      else exactly as the source has it."
    - `checks`: at least one deterministic check (`contains`, `not_contains`,
      `regex`, `file_exists`) for every concrete expectation, plus one plain
-     sentence check for the overall intent.
+     sentence check for the overall intent. A text check reads SKILL.md unless
+     it names another file in the skill folder:
+     `- {contains: "02:00", file: "reference/runbook.md"}`. No other shapes.
    For a skill that has no patch yet, create one with
    `python3 .sss/tool/sss.py patch new <skill> --intent "..."` and then edit
    the file. Show the patch to the user in your summary; it is the thing they
@@ -105,8 +109,8 @@ Work out which of these the request contains, and do them in this order:
      ```bash
      python3 .sss/tool/sss.py conflict <skill> --reason "<what no longer applies>"
      ```
-   - Write the result into the skill's folder under `skills_dir` (SKILL.md plus
-     any other source files).
+   - Write the result into the folder named by `output` in the plan (SKILL.md
+     plus any other source files).
    - Check every `sentence_checks` item against what you wrote. Fix or record a
      conflict if one fails.
    - Stamp it:
