@@ -36,7 +36,7 @@ does not guess. It marks that recipe as needing a person's attention.
 | 1. Source replica | Letter-for-letter copy of the source of truth | SSS, on sync | Never |
 | 2. Semantic patches | Local, high-level change requests per skill | People | Yes |
 | 3. Manifest | Where each skill came from, when it was synced, which patches apply | People and SSS | Yes, for the fields people own |
-| 4. Generated skills | The skills the repo actually uses | SSS, on generate | Never |
+| 4. Generated skills | The skills the repo actually uses | SSS, on generate | Never, for skills the manifest lists |
 
 Part 4 is committed to the repo. It is derived, so it is regenerated whenever
 part 1 or part 2 changes for that skill.
@@ -57,16 +57,16 @@ each agent runtime reads:
 
 | Runtime | Reads | How SSS reaches it |
 | --- | --- | --- |
-| Codex CLI | `.agents/skills/` | writes there directly (`output_dir`) |
+| Codex CLI | `.agents/skills/` | writes there directly (`skills_dir`) |
 | Gemini CLI | `.agents/skills/` or `.gemini/skills/` | same directory; workspace must be trusted |
 | Claude Code | `.claude/skills/` only | a symlink per skill into `.claude/skills/` (`mirror_dirs`) |
 
 All three runtimes follow symlinks. On a file system without symlinks, run
 `init --copy` to copy instead, and re-run `sss links --copy` after each
-generate. The command skills then appear as `/update-skills`,
+generate. The command skills then appear as `/sync-skills`,
 `/reorganize-skills` and `/deprecate-skills` in Claude Code, as
-`$update-skills` and friends in Codex, and by description in Gemini. Saying
-"update skills using sss" works everywhere.
+`$sync-skills` and friends in Codex, and by description in Gemini. Saying
+"sync skills using sss" works everywhere.
 
 SSS needs Python 3.12 or newer and PyYAML. Nothing else.
 
@@ -86,9 +86,9 @@ SSS needs Python 3.12 or newer and PyYAML. Nothing else.
     <skill>/                 # skills authored in this repo, treated as a source
   patches/
     <skill-name>.md          # part 2, one file per patched skill
-.agents/skills/              # part 4, output_dir (configurable)
+.agents/skills/              # part 4, skills_dir (configurable); may also hold the repo's own skills
   <skill-name>/SKILL.md
-  update-skills -> ../../.sss/tool/skills/update-skills
+  sync-skills -> ../../.sss/tool/skills/sync-skills
 .claude/skills/              # mirror_dirs: one symlink per entry above
 ```
 
@@ -105,7 +105,7 @@ carries a `.sss-replica` marker file. Tell other scanners to ignore `.sss/`.
 
 ```yaml
 schema_version: 1
-output_dir: .agents/skills
+skills_dir: .agents/skills      # older manifests say output_dir; both are read
 mirror_dirs: [.claude/skills]
 
 sources:
@@ -133,7 +133,7 @@ skills:
 
 Who owns which fields:
 
-- People write `output_dir`, `mirror_dirs`, each source's `name`, `url`, `ref`,
+- People write `skills_dir`, `mirror_dirs`, each source's `name`, `url`, `ref`,
   `mode`, `path`, `skills_root`, and each skill's `name`, `from`, `patches`.
 - SSS writes `synced_commit`, `synced_at`, `generated_at`, `status` and
   `conflict`. It never changes the fields people own.
@@ -193,7 +193,8 @@ The result is one of five states:
 | `conflict` | A patch no longer applies to the source, or the source skill vanished | a person decides |
 | `failed` | A deterministic check failed at finalize | fix the output and finalize again |
 
-A sync with no upstream changes and no patch edits produces no diff.
+A fetch with no upstream changes and no patch edits produces no diff. Sync is
+one-way: SSS pulls from sources of truth and never pushes to them.
 
 ### The CI gate
 
@@ -248,7 +249,7 @@ metadata:
 | --- | --- | --- |
 | `init` | nothing | manifest, folders, links for the command skills |
 | `source add` | manifest | source entry, replica, `synced_*` |
-| `sync` | manifest, sources | refreshed replicas, `synced_*`, then prints status |
+| `fetch` (alias `sync`) | manifest, sources | refreshed replicas, `synced_*`, then prints status |
 | `import` | manifest, replica | skill entry; copies it if unpatched, or creates a patch template |
 | `status` | manifest, git history | nothing; `--fail-on-stale` for CI |
 | `generate` | replica | unpatched outputs, provenance, links |
@@ -261,9 +262,11 @@ metadata:
 | `report` | findings JSON | the markdown report |
 | `deprecate` | manifest | removes entry, patches, output, links; prints references |
 
-The three command skills, `update-skills`, `reorganize-skills` and
+The three command skills, `sync-skills`, `reorganize-skills` and
 `deprecate-skills`, tell the agent which of these to run and what judgement to
-apply between them. The README's command numbering maps as follows: 1.1 is
+apply between them. `sync-skills` covers the whole of README command 1: 1.1 is
 `source add` plus `import`, 1.2 is `import --patch` or `patch new` plus `plan`
-and `finalize`, 1.3 is `sync` followed by the same, 2.x is the
-`reorganize-skills` skill over `inventory` and `report`, and 3.1 is `deprecate`.
+and `finalize`, 1.3 is `fetch` followed by the same. Command 2 is the
+`reorganize-skills` skill over `inventory`, `matrix` and `report`, and 3.1 is
+`deprecate`. Every step reads and writes the manifest; it is the one mapping
+from source of truth, through patches, to generated skill.

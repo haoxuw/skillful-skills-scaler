@@ -100,8 +100,8 @@ def test_full_loop(source: Path, target: Path):
     assert rc == 0, res
     assert (target / ".sss" / "manifest.yaml").is_file()
     assert (target / ".sss" / "reports" / ".gitignore").read_text().startswith("*")
-    assert (target / ".agents" / "skills" / "update-skills").is_symlink()
-    assert (target / ".claude" / "skills" / "update-skills" / "SKILL.md").is_file()
+    assert (target / ".agents" / "skills" / "sync-skills").is_symlink()
+    assert (target / ".claude" / "skills" / "sync-skills" / "SKILL.md").is_file()
 
     # add a source: replica is vendored letter for letter, with LICENSE
     rc, res = run(target, "source", "add", "cookbook", f"file://{source}", "--ref", "main")
@@ -167,9 +167,9 @@ def test_full_loop(source: Path, target: Path):
     # upstream changes salad only; sync marks salad stale, omelette stays ok
     (source / "skills" / "salad" / "SKILL.md").write_text(SALAD.replace("add dressing", "add dressing and nuts"))
     v2 = commit_all(source, "cookbook v2")
-    rc, res = run(target, "sync")
+    rc, res = run(target, "fetch")
     assert rc == 0, res
-    assert res["synced"][0]["changed"] is True and res["synced"][0]["new"] == v2
+    assert res["fetched"][0]["changed"] is True and res["fetched"][0]["new"] == v2
     by = {s["skill"]: s for s in res["status"]}
     assert by["salad"]["status"] == "stale", by["salad"]
     assert by["omelette"]["status"] == "ok", by["omelette"]
@@ -252,7 +252,7 @@ def test_local_source(target: Path):
 
 def test_copy_mode(source: Path, target: Path):
     assert run(target, "init", "--copy")[0] == 0
-    assert not (target / ".agents" / "skills" / "update-skills").is_symlink()
+    assert not (target / ".agents" / "skills" / "sync-skills").is_symlink()
     assert run(target, "source", "add", "cookbook", f"file://{source}")[0] == 0
     assert run(target, "import", "cookbook/salad")[0] == 0
     mirror = target / ".claude" / "skills" / "salad"
@@ -319,6 +319,16 @@ def test_generate_refuses_invalid_frontmatter(source: Path, target: Path):
     rc, res = run(target, "import", "cookbook/broken")
     assert rc == 2 and "not valid YAML" in res["stderr"]
     assert not (target / ".agents" / "skills" / "broken" / "SKILL.md").exists()
+
+
+def test_sync_alias_and_old_manifest_key(source: Path, target: Path):
+    assert run(target, "init")[0] == 0
+    mp = target / ".sss" / "manifest.yaml"
+    mp.write_text(mp.read_text().replace("skills_dir: .agents/skills", "output_dir: .agents/skills"))
+    assert run(target, "source", "add", "cookbook", f"file://{source}")[0] == 0
+    assert "skills_dir: .agents/skills" in mp.read_text() and "output_dir" not in mp.read_text()
+    rc, res = run(target, "sync")           # alias of fetch
+    assert rc == 0 and "fetched" in res
 
 
 def test_report_render(tmp_path: Path):

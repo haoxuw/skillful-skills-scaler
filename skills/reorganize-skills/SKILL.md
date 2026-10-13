@@ -133,7 +133,7 @@ the same steps in sequence. The results must be identical either way.
 
 10. **Apply only the safe actions**, meaning findings with `decision_needed: false`:
     - A reconcile is a new patch: `python3 .sss/tool/sss.py patch new <skill> --intent "..."`,
-      then follow the `update-skills` flow for that skill.
+      then follow the `sync-skills` flow for that skill.
     - A missing dependency is an import: `python3 .sss/tool/sss.py import <source>/<path>`.
     - A broken link is fixed in the patch or local skill, never in generated output.
     Anything needing a decision is left alone and listed in the report.

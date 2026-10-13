@@ -13,7 +13,7 @@
 # limitations under the License.
 """The manifest: .sss/manifest.yaml in the target repo.
 
-People own: output_dir, mirror_dirs, each source's name/url/ref/mode/path/skills_root,
+People own: skills_dir, mirror_dirs, each source's name/url/ref/mode/path/skills_root,
 each skill's name/from/patches.  SSS owns: synced_commit, synced_at, generated_at,
 status, conflict.
 """
@@ -107,7 +107,7 @@ class Skill:
 @dataclass
 class Manifest:
     root: Path
-    output_dir: str = ".agents/skills"
+    skills_dir: str = ".agents/skills"   # where generated skills land; often shared with hand-written ones
     mirror_dirs: list[str] = field(default_factory=lambda: [".claude/skills"])
     link_mode: str = "symlink"    # symlink | copy  (copy for file systems without symlinks)
     sources: list[Source] = field(default_factory=list)
@@ -127,7 +127,7 @@ class Manifest:
         raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
         m = cls(root=root)
         m.schema_version = int(raw.get("schema_version", 1))
-        m.output_dir = raw.get("output_dir", m.output_dir)
+        m.skills_dir = raw.get("skills_dir", raw.get("output_dir", m.skills_dir))  # output_dir: old name
         m.mirror_dirs = list(raw.get("mirror_dirs", m.mirror_dirs) or [])
         m.link_mode = raw.get("link_mode", "symlink")
         for s in raw.get("sources", []) or []:
@@ -150,14 +150,14 @@ class Manifest:
     def save(self) -> None:
         data = {
             "schema_version": self.schema_version,
-            "output_dir": self.output_dir,
+            "skills_dir": self.skills_dir,
             "mirror_dirs": list(self.mirror_dirs),
             "link_mode": self.link_mode,
             "sources": [s.to_dict() for s in self.sources],
             "skills": [k.to_dict() for k in self.skills],
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        header = "# Managed by SSS. People edit output_dir, mirror_dirs, link_mode, sources (not synced_*),\n# and skills name/from/patches. SSS writes the rest.\n"
+        header = "# Managed by SSS. People edit skills_dir, mirror_dirs, link_mode, sources (not synced_*),\n# and skills name/from/patches. SSS writes the rest.\n"
         self.path.write_text(header + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
     # ---- lookups -----------------------------------------------------
@@ -177,7 +177,7 @@ class Manifest:
         return any(k.name == name for k in self.skills)
 
     def output_rel(self, skill: Skill) -> str:
-        return f"{self.output_dir.rstrip('/')}/{skill.name}"
+        return f"{self.skills_dir.rstrip('/')}/{skill.name}"
 
     def source_skill_rel(self, skill: Skill) -> str:
         return self.source(skill.source).skill_rel(skill.skill_dir)

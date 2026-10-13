@@ -30,7 +30,7 @@ You are running SSS (Skillful-skills-scaler). Run the CLI as
    - In a local skill or a doc: edit it to drop or replace the mention.
    - In a generated skill: do not edit the output. Add or extend that skill's patch
      with an instruction like "do not mention `<skill>`; it was removed", then follow
-     the `update-skills` flow for that skill.
+     the `sync-skills` flow for that skill.
    - In `.sss/decisions.yaml`: leave it, history is fine.
 
 4. **Verify** with `python3 .sss/tool/sss.py --json status` and `git status`, then

@@ -14,7 +14,7 @@
 """Make skills visible to every agent runtime.
 
 Claude Code reads .claude/skills, Codex and Gemini read .agents/skills. All three
-follow symlinks. SSS writes generated skills to output_dir and links each one into
+follow symlinks. SSS writes generated skills to skills_dir and links each one into
 every mirror_dir. SSS's own command skills are linked the same way."""
 from __future__ import annotations
 
@@ -52,23 +52,23 @@ def _link(target: Path, link: Path, copy: bool) -> str:
 
 def sync_links(m: Manifest, copy: bool | None = None) -> list[dict]:
     """Ensure every generated skill and every SSS command skill is reachable from
-    output_dir and all mirror_dirs. Symlinks by default; real copies when the
+    skills_dir and all mirror_dirs. Symlinks by default; real copies when the
     manifest says link_mode: copy."""
     if copy is None:
         copy = m.link_mode == "copy"
     results = []
-    out = m.root / m.output_dir
+    out = m.root / m.skills_dir
     out.mkdir(parents=True, exist_ok=True)
-    # SSS's own command skills go into output_dir as links.
+    # SSS's own command skills go into skills_dir as links.
     own = []
     if OWN_SKILLS.is_dir():
         for d in sorted(OWN_SKILLS.iterdir()):
             if (d / "SKILL.md").is_file():
                 own.append(d.name)
-                results.append({"skill": d.name, "into": m.output_dir, "result": _link(d, out / d.name, copy)})
+                results.append({"skill": d.name, "into": m.skills_dir, "result": _link(d, out / d.name, copy)})
     names = own + [k.name for k in m.skills if (out / k.name / "SKILL.md").is_file()]
     for mirror in m.mirror_dirs:
-        if mirror.rstrip("/") == m.output_dir.rstrip("/"):
+        if mirror.rstrip("/") == m.skills_dir.rstrip("/"):
             continue
         for name in names:
             results.append({"skill": name, "into": mirror, "result": _link(out / name, m.root / mirror / name, copy)})
@@ -77,7 +77,7 @@ def sync_links(m: Manifest, copy: bool | None = None) -> list[dict]:
 
 def unlink_skill(m: Manifest, name: str) -> list[str]:
     removed = []
-    for d in [m.output_dir, *m.mirror_dirs]:
+    for d in [m.skills_dir, *m.mirror_dirs]:
         p = m.root / d / name
         if p.is_symlink():
             p.unlink(); removed.append(str(p.relative_to(m.root)))
