@@ -13,17 +13,20 @@
 # limitations under the License.
 """Render reorganize-report.md from reorganize-report.json, per docs/report-schema.md.
 
-The report answers, in order: are any skills out of date, duplicated, conflicting,
-missing pieces, or unuseful and out of place."""
+The report answers, in order: do any skills conflict, are any out of date, duplicated,
+missing pieces they refer to, or unuseful and out of place. The section order and
+wording live in the template; this module only produces the blocks."""
 from __future__ import annotations
 
+import datetime as _dt
 import hashlib
 import json
+import re
 from pathlib import Path
 
-TYPES = ("out_of_date", "duplicate", "conflict", "missing_dependency", "broken_reference", "out_of_place", "low_value")
+TYPES = ("out_of_date", "duplicate", "conflict", "missing_dependency", "broken_reference", "out_of_place", "low_value", "invalid_frontmatter")
 PREFIX = {"out_of_date": "old", "duplicate": "dup", "conflict": "conf", "missing_dependency": "dep",
-          "broken_reference": "ref", "out_of_place": "place", "low_value": "low"}
+          "broken_reference": "ref", "out_of_place": "place", "low_value": "low", "invalid_frontmatter": "fm"}
 VERBS = {"move": "Move", "merge": "Merge", "remove": "Remove", "patch": "Patch", "rename": "Rename",
          "fix_link": "Fix link", "update": "Update", "import": "Import", "none": "No change"}
 CONFLICT_OPTIONS = [
@@ -32,12 +35,12 @@ CONFLICT_OPTIONS = [
     "Keep both, and write a local patch that reconciles them.",
     "Open an issue upstream, and patch locally meanwhile.",
 ]
-QUESTIONS = [
+QUESTIONS = [  # same order as the report sections
+    ("conflict", "Do any skills give conflicting information?"),
     ("out_of_date", "Are any skills out of date?"),
     ("duplicate", "Are any skills duplicated?"),
-    ("conflict", "Do any skills give conflicting information?"),
     (("missing_dependency", "broken_reference"), "Are any skills missing pieces they refer to?"),
-    (("out_of_place", "low_value"), "Are any skills unuseful or out of place?"),
+    (("out_of_place", "low_value", "invalid_frontmatter"), "Are any skills unuseful or out of place?"),
 ]
 
 
@@ -96,10 +99,6 @@ def normalize(data: dict) -> dict:
     return data
 
 
-def _nothing(L: list[str]) -> None:
-    L += ["Nothing found.", ""]
-
-
 def _by(data: dict, types) -> list[dict]:
     types = (types,) if isinstance(types, str) else types
     return [f for f in data["findings"] if f.get("type") in types]
@@ -118,99 +117,101 @@ def warnings_for(data: dict) -> list[str]:
     return out
 
 
-def render(data: dict, matrix=None) -> str:
+TEMPLATE = Path(__file__).resolve().parent.parent / "skills" / "reorganize-skills" / "templates" / "reorganize-report.md"
+
+
+def _block(lines: list[str]) -> str:
+    text = "\n".join(lines).strip("\n")
+    return text if text else "Nothing found."
+
+
+def blocks(data: dict, matrix=None) -> dict:
+    """Every placeholder the template can use, as finished markdown."""
     data = normalize(data)
     s = data["summary"]
-    L: list[str] = ["# Skills reorganize report", ""]
+    B: dict[str, str] = {}
+    B["repo"] = str(data.get("repo") or "this repo")
+    B["generated_at"] = str(data.get("generated_at") or "(not recorded)")
+    B["summary_text"] = data.get("summary_text") or (
+        f"We looked at {s['skills_found']} skills from {s['sources']} sources. "
+        + ("Nothing needs your attention." if s["decisions_needed"] == 0 else f"{s['decisions_needed']} items need a decision from you."))
 
-    # 1. Summary: answer each question in one line
-    L += ["## 1. Summary", ""]
-    L += [data.get("summary_text") or f"We looked at {s['skills_found']} skills from {s['sources']} sources. "
-          + ("Nothing needs your attention." if s["decisions_needed"] == 0 else f"{s['decisions_needed']} items need a decision from you."), ""]
-    L += ["| Question | Answer |", "| --- | --- |"]
+    L = ["| Question | Answer |", "| --- | --- |"]
     for types, q in QUESTIONS:
         n = len(_by(data, types))
         L.append(f"| {q} | {'No' if n == 0 else f'Yes, {n}'} |")
     safe = len({_action_key(f) for f in data["findings"] if f["proposed_action"].get("verb", "none") != "none" and not f["decision_needed"]})
-    L += [f"| Actions we can take without asking | {safe} |",
-          f"| Decisions needed from you | {s['decisions_needed']} |", ""]
+    L += [f"| Actions we can take without asking | {safe} |", f"| Decisions needed from you | {s['decisions_needed']} |"]
+    B["question_table"] = _block(L)
 
-    # 2. Inventory
-    L += ["## 2. What we looked at", ""]
+    L = []
     if data["inventory"]:
         L += ["| Skill | Source | Status | Location | Files | Words | Last changed |", "| --- | --- | --- | --- | --- | --- | --- |"]
         for i in data["inventory"]:
             L.append(f"| {i.get('id','')} | {i.get('source','local')} | {i.get('status','')} | `{i.get('path','')}` | {i.get('files','')} | {i.get('words','')} | {i.get('last_changed') or ''} |")
-        L.append("")
-    else:
-        _nothing(L)
+    B["inventory_table"] = _block(L)
 
-    # 3..7: one section per question
-    sections = [
-        ("3. Out of date", "out_of_date", "These skills are behind their source, or describe things that have since changed."),
-        ("4. Duplicates", "duplicate", "These skills cover the same ground: 0 or 1 star in the coverage matrix (see the appendix). Keeping both wastes the agent's attention and lets them drift apart."),
-        ("5. Conflicts", "conflict", "These skills disagree. An agent that loads both will get two answers."),
-        ("6. Missing pieces", ("missing_dependency", "broken_reference"), "These skills point at files or other skills that are not here."),
-        ("7. Unuseful or out of place", ("out_of_place", "low_value"), "These skills do not belong in this repo, or do not help an agent do anything."),
-    ]
-    for title, types, intro in sections:
-        L += [f"## {title}", ""]
-        items = _by(data, types)
-        if not items:
-            _nothing(L)
-            continue
-        L += [intro, ""]
-        for f in items:
+    for key_, types in (("out_of_date", "out_of_date"), ("duplicates", "duplicate"), ("conflicts", "conflict"),
+                        ("missing_pieces", ("missing_dependency", "broken_reference")), ("out_of_place", ("out_of_place", "low_value", "invalid_frontmatter"))):
+        L = []
+        for f in _by(data, types):
             L += _finding_block(f, show_options=(f.get("type") == "conflict"))
+        B[key_] = _block(L)
 
-    # 8. Proposed changes
-    L += ["## 8. Proposed changes", ""]
     ready = [f for f in data["findings"] if f["proposed_action"].get("verb", "none") != "none" and not f["decision_needed"]]
     waiting = [f for f in data["findings"] if f["proposed_action"].get("verb", "none") != "none" and f["decision_needed"]]
-    if not ready and not waiting:
-        _nothing(L)
+    L = []
     if ready:
-        L += ["These are safe and the pull request applies them:", ""]
-        L += [f"- {line}" for line in _grouped_actions(ready)] + [""]
+        L += ["These are safe and the pull request applies them:", ""] + [f"- {x}" for x in _grouped_actions(ready)] + [""]
     if waiting:
-        L += ["### Waiting on your decision", ""]
-        L += ["One line per action. Several findings can point at the same action; all their IDs are listed.", ""]
-        L += [f"- {line}" for line in _grouped_actions(waiting)] + [""]
+        L += ["### Waiting on your decision", "", "One line per action. Several findings can point at the same action; all their IDs are listed.", ""]
+        L += [f"- {x}" for x in _grouped_actions(waiting)]
+    B["proposed_changes"] = _block(L)
 
-    # 9. Left alone
-    L += ["## 9. What we left alone", ""]
-    if data.get("left_alone"):
-        L += [f"- **{x.get('skill','')}**: {x.get('reason','')}" for x in data["left_alone"]] + [""]
-    else:
-        _nothing(L)
-
-    # 10. How to respond
-    L += ["## 10. How to respond", ""]
-    L += ["Each item marked \"needs decision\" has an ID like `conf-81be44`. Reply with the ID and your choice,",
-          "either as a comment on the pull request or by adding a line to `.sss/decisions.yaml`:", "",
-          "```yaml", "dup-3f9a2c: accept", "conf-81be44:", "  choice: 3", "  note: \"Both are right in different regions.\"", "```", "",
-          "The next run reads those answers and applies them. Items you have answered are not asked again.", ""]
-
-    # Appendix: every skill, its goal, and every concern that touches it
-    L += ["## Appendix: every skill we found", ""]
-    L += ["One entry per skill. \"Goal\" is what the skill is for, in one line. \"Concerns\" lists every finding above that involves it.", ""]
+    L = []
     for i in data["inventory"]:
         L += _appendix_entry(i, data["findings"])
+    B["appendix_skills"] = _block(L) if data["inventory"] else "No skills found."
 
-    # Appendix 2: the coverage matrix
-    L += ["## Appendix: coverage matrix", ""]
     if matrix:
         from . import matrix as matrixmod
         inv, mdata = matrix
-        L += ["Every skill was compared with every other skill and scored by how much they cover the same ground.", ""]
-        L += [matrixmod.render_table(inv, mdata)]
+        B["appendix_matrix"] = matrixmod.render_table(inv, mdata).rstrip("\n")
     else:
-        L += ["No coverage matrix was produced for this run.", ""]
-    return "\n".join(L)
+        B["appendix_matrix"] = "No coverage matrix was produced for this run."
+    return B
+
+
+_PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
+
+
+def render(data: dict, matrix=None, template: str | None = None) -> str:
+    """Fill the report template. The template is a resource of the reorganize
+    skill, so the agent and the renderer share one definition of the shape."""
+    if template is None:
+        if not TEMPLATE.is_file():
+            raise FileNotFoundError(
+                f"report template not found at {TEMPLATE}. SSS must run from its checkout "
+                "(the .sss/tool submodule), which carries the skills/ folder; a bare package install does not.")
+        template = TEMPLATE.read_text(encoding="utf-8")
+    tpl = template
+    B = blocks(data, matrix)
+    missing = []
+
+    def sub(m):
+        k = m.group(1)
+        if k in B:
+            return B[k]
+        missing.append(k)
+        return m.group(0)
+    out = _PLACEHOLDER.sub(sub, tpl)
+    if missing:
+        out += "\n\n<!-- unfilled placeholders: " + ", ".join(sorted(set(missing))) + " -->\n"
+    return out.rstrip("\n") + "\n"
 
 
 _SHORT = {"out_of_date": "out of date", "duplicate": "duplicate", "conflict": "conflicts", "missing_dependency": "missing dependency",
-          "broken_reference": "broken link", "out_of_place": "out of place", "low_value": "low value"}
+          "broken_reference": "broken link", "out_of_place": "out of place", "low_value": "low value", "invalid_frontmatter": "invalid front matter"}
 
 
 def _one_line(text: str, limit: int = 160) -> str:
@@ -276,8 +277,12 @@ def _grouped_actions(findings: list[dict]) -> list[str]:
     return lines
 
 
-def render_file(json_path: Path, md_path: Path, matrix=None) -> list[str]:
+def render_file(json_path: Path, md_path: Path, matrix=None, repo: str | None = None) -> list[str]:
     data = json.loads(json_path.read_text(encoding="utf-8"))
+    # Stamp once and persist, so re-rendering unchanged JSON gives identical markdown.
+    data.setdefault("generated_at", _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
+    if repo and not data.get("repo"):
+        data["repo"] = repo
     md_path.write_text(render(data, matrix=matrix), encoding="utf-8")
     json_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return warnings_for(data)

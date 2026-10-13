@@ -287,7 +287,9 @@ def cmd_report(args) -> int:
     mp = root / REPORTS_DIR / "similarity.json"
     m = Manifest.load(root) if (root / ".sss" / "manifest.yaml").exists() else None
     inv = inventory.scan(m, root) if mp.exists() else None
-    warnings = report.render_file(json_path, out, matrix=(inv, matrixmod.load(mp)) if inv else None)
+    remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=str(root), capture_output=True, text=True).stdout.strip()
+    repo_name = remote.rsplit("/", 1)[-1].removesuffix(".git") if remote else root.name
+    warnings = report.render_file(json_path, out, matrix=(inv, matrixmod.load(mp)) if inv else None, repo=repo_name)
     print(f"wrote {out}")
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)

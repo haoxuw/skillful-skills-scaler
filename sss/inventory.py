@@ -42,7 +42,11 @@ def find_skill_dirs(root: Path, exclude: list[str]) -> list[Path]:
             real = os.path.realpath(dirpath)
             if real in ex or any(real.startswith(e + os.sep) for e in ex):
                 continue
-            found.setdefault(real, Path(dirpath))   # dedupe symlinked mirrors
+            # Dedupe symlinked mirrors, and always record the real location so the
+            # path and git history do not depend on which link os.walk met first.
+            root_real = os.path.realpath(root)
+            where = Path(real) if real.startswith(root_real + os.sep) else Path(dirpath)
+            found.setdefault(real, where)
             dirnames[:] = []                         # skills do not nest
     return sorted(found.values(), key=lambda p: str(p))
 
@@ -54,7 +58,12 @@ def _last_changed(root: Path, rel: str) -> str | None:
 
 def scan(m: Manifest | None, root: Path) -> dict:
     exclude = [SOURCES_DIR, TOOL_DIR, ".sss/local"]
-    exclude += (m.mirror_dirs if m else [])  # real dirs live in output_dir; mirrors are links
+    # Mirror dirs normally hold symlinks into output_dir, which the realpath dedupe
+    # below already collapses. Only exclude a mirror when it holds real copies
+    # (link_mode: copy) and is not the output dir itself under another name.
+    if m and m.link_mode == "copy":
+        out_real = os.path.realpath(root / m.output_dir)
+        exclude += [d for d in m.mirror_dirs if os.path.realpath(root / d) != out_real]
     managed_status = {s["skill"]: s for s in statusmod.check_all(m)} if m else {}
     available: dict[str, list[str]] = {}
     if m:
@@ -90,6 +99,7 @@ def scan(m: Manifest | None, root: Path) -> dict:
             "headings": _HEAD.findall(body)[:40],
             "references": refs,
             "broken_references": broken,
+            "frontmatter_error": meta.get("_frontmatter_error"),
             "mentions_skills": sorted(set(_TICK.findall(body))),
             "_body": body,
         })

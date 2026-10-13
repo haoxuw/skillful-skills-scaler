@@ -288,6 +288,39 @@ def test_matrix(source: Path, target: Path):
     assert "## Appendix: coverage matrix" in md and "| **S1** omelette |" in md
 
 
+def test_inventory_when_claude_skills_is_a_symlink_to_agents_skills(target: Path):
+    # Some repos point .claude/skills at .agents/skills as one directory link.
+    (target / ".agents" / "skills" / "local-one").mkdir(parents=True)
+    (target / ".agents" / "skills" / "local-one" / "SKILL.md").write_text("---\nname: local-one\ndescription: One.\n---\n\nBody.\n")
+    (target / ".claude").mkdir()
+    os.symlink("../.agents/skills", target / ".claude" / "skills")
+    assert run(target, "init")[0] == 0
+    rc, inv = run(target, "inventory")
+    assert rc == 0 and [s["id"] for s in inv["skills"]] == ["local-one"], inv
+    assert inv["skills"][0]["path"] == ".agents/skills/local-one"   # real location, never the mirror
+
+
+def test_frontmatter_repair_keeps_structure():
+    bad = "---\nname: audit\ndescription: Use when asked to run an audit: a run collects and publishes.\nmetadata:\n  version: 1\nallowed-tools:\n  - Bash\n---\n\nBody.\n"
+    meta, body = frontmatter.split(bad)
+    assert meta["name"] == "audit" and meta["description"].startswith("Use when asked to run an audit: a run")
+    assert meta["metadata"] == {"version": 1} and meta["allowed-tools"] == ["Bash"]   # nested shapes survive
+    assert "_frontmatter_error" in meta and body.strip() == "Body."
+    # internal flags never reach disk
+    assert "_frontmatter_error" not in frontmatter.join(meta, body)
+
+
+def test_generate_refuses_invalid_frontmatter(source: Path, target: Path):
+    (source / "skills" / "broken").mkdir()
+    (source / "skills" / "broken" / "SKILL.md").write_text("---\nname: broken\ndescription: a: b: [c\n---\n\nx\n")
+    commit_all(source, "broken skill")
+    assert run(target, "init")[0] == 0
+    assert run(target, "source", "add", "cookbook", f"file://{source}")[0] == 0
+    rc, res = run(target, "import", "cookbook/broken")
+    assert rc == 2 and "not valid YAML" in res["stderr"]
+    assert not (target / ".agents" / "skills" / "broken" / "SKILL.md").exists()
+
+
 def test_report_render(tmp_path: Path):
     data = {
         "inventory": [{"id": "a", "source": "local", "path": "x/a", "files": 1, "words": 10},
@@ -306,8 +339,10 @@ def test_report_render(tmp_path: Path):
     assert rc == 0
     md = (tmp_path / "r.md").read_text()
     back = json.loads(jp.read_text())
-    for i in range(1, 11):
+    for i in range(1, 10):
         assert f"## {i}. " in md
+    assert "## 10. " not in md and "left alone" not in md.lower()
+    assert md.index("## 2. Conflicts") < md.index("## 3. Out of date") < md.index("## 7. What we looked at")
     assert "| Are any skills duplicated? | Yes, 1 |" in md
     assert "| Are any skills out of date? | No |" in md
     assert back["summary"]["decisions_needed"] == 2          # remove and conflict are distinct actions

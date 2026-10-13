@@ -4,7 +4,7 @@ This document defines the report that the `reorganize` command produces.
 The report is output (A) in the README. Output (B), the pull request, is
 generated from the same findings, so the two always agree.
 
-## For non-technical readers
+## High level summary
 
 When many skills are collected from different places, some fall behind the
 place they came from, some say the same thing twice, some disagree with each
@@ -15,9 +15,9 @@ them up in this report.
 The report is written for a person who owns the skills but may not have
 written them. It answers five questions, in this order:
 
-1. Are any skills out of date?
-2. Are any skills duplicated?
-3. Do any skills give conflicting information?
+1. Do any skills give conflicting information?
+2. Are any skills out of date?
+3. Are any skills duplicated?
 4. Are any skills missing pieces they refer to?
 5. Are any skills unuseful or out of place?
 
@@ -44,8 +44,13 @@ The report is a local working document. `.sss/reports/` is gitignored by
 `sss init`, so reports are never committed. When a pull request is opened,
 the markdown is pasted into the pull request description instead.
 
-The markdown file is rendered from the JSON file by `sss report`. If they
-ever disagree, the JSON file is authoritative.
+The markdown file is rendered from the JSON file by `sss report`, which fills
+the template at `skills/reorganize-skills/templates/reorganize-report.md`.
+The template is a resource of the reorganize skill, so the agent and the
+renderer share one definition of the report's shape. To change wording or
+order of sections, edit the template; to change what a block contains, edit
+the renderer. If markdown and JSON ever disagree, the JSON file is
+authoritative.
 
 ## The coverage matrix
 
@@ -88,25 +93,35 @@ summary says that this pass ran and how many findings it changed.
 | `broken_reference` | 4 | the inventory: a link to a file that does not exist | `fix_link` |
 | `out_of_place` | 5 | the model: the skill is unrelated to this repo, or is in the wrong folder | `move` or `remove` |
 | `low_value` | 5 | the model: the skill does not help an agent do anything, for example it is vague, trivially short, or only links elsewhere | `remove` or `patch` |
+| `invalid_frontmatter` | 5 | the inventory: the SKILL.md front matter is not valid YAML, so a runtime may skip the skill | `patch` |
 
 ## Markdown report structure
 
-The markdown report has exactly these sections, in this order. A section with
-nothing to say still appears, with the line "Nothing found." This keeps
-reports comparable between runs.
+The markdown report has exactly these sections, in this order, followed by
+two appendices. A section with nothing to say still appears, with the line
+"Nothing found." This keeps reports comparable between runs. The shape is
+defined once, in the template at
+`skills/reorganize-skills/templates/reorganize-report.md`.
 
 ### 1. Summary
 
-One short paragraph, then a table with one row per question and a yes or no
-answer with a count, followed by how many actions are safe to take and how
-many need a decision.
+One short paragraph, then a table with one row per question in section
+order and a yes or no answer with a count, followed by how many actions are
+safe to take and how many need a decision.
 
-### 2. What we looked at
+### 2. Conflicts
 
-The inventory. One row per skill: name, source, status, location, number of
-files, word count, date of last change. "Source" names the origin the skill
-was imported from, or "local" if it was written in this repo. "Status" is the
-SSS status for managed skills and "unmanaged" otherwise.
+One subsection per conflict. Each states the two skills, the disagreement as
+a direct quote from each side, why it matters in plain language, the four
+fixed options, our recommendation with a confidence word, and always
+"Decision needed: yes".
+
+The four options are always:
+
+1. Keep A, retire B.
+2. Keep B, retire A.
+3. Keep both, and write a local patch that reconciles them.
+4. Open an issue upstream, and patch locally meanwhile.
 
 ### 3. Out of date
 
@@ -124,46 +139,33 @@ keeping and why, and what happens to the others. The default preference is
 the one that comes from a source of truth over a local copy, and the newer
 over the older.
 
-### 5. Conflicts
-
-One subsection per conflict. Each states the two skills, the disagreement as
-a direct quote from each side, why it matters in plain language, the four
-fixed options, our recommendation with a confidence word, and always
-"Decision needed: yes".
-
-The four options are always:
-
-1. Keep A, retire B.
-2. Keep B, retire A.
-3. Keep both, and write a local patch that reconciles them.
-4. Open an issue upstream, and patch locally meanwhile.
-
-### 6. Missing pieces
+### 5. Missing pieces
 
 Missing dependencies and broken references. Each states the skill, what it
 points at, where that thing can be found if we know, and the fix.
 
-### 7. Unuseful or out of place
+### 6. Unuseful or out of place
 
 One subsection per finding. Each quotes the skill, says why it does not help
 or does not belong here, and recommends moving or removing it. Removal
 always needs a decision.
 
+### 7. What we looked at
+
+The inventory. One row per skill: name, source, status, location, number of
+files, word count, date of last change. "Source" names the origin the skill
+was imported from, or "local" if it was written in this repo. "Status" is the
+SSS status for managed skills and "unmanaged" otherwise.
+
 ### 8. Proposed changes
 
 The list of actions the pull request will perform, one line each, starting
 with a verb: Move, Merge, Remove, Patch, Rename, Fix link, Update, Import.
-Each line ends with the finding ID. Actions that need a decision are listed
-under a separate heading "Waiting on your decision" and are not in the pull
-request.
+Each line ends with the finding IDs that call for it. Actions that need a
+decision are listed under a separate heading "Waiting on your decision" and
+are not in the pull request.
 
-### 9. What we left alone
-
-Anything we noticed but chose not to act on, with a one-line reason, so the
-reader knows the omission was deliberate. Candidate pairs judged to be fine
-go here.
-
-### 10. How to respond
+### 9. How to respond
 
 How to record decisions, by finding ID, in a pull request comment or in
 `.sss/decisions.yaml`.
@@ -176,7 +178,7 @@ One entry per skill discovered, in inventory order. Each entry has:
 - **Goal.** What the skill is for, in one plain line. The agent writes this
   as `goal` on the inventory entry; if it is missing, the skill's own
   description is used, cut to one line.
-- **Concerns.** Every finding in sections 3 to 7 that involves this skill,
+- **Concerns.** Every finding in sections 2 to 6 that involves this skill,
   one per line, with the type, the other skills involved, the finding ID,
   the recommendation, and whether a decision is needed. A skill with no
   findings says "none".
@@ -188,7 +190,7 @@ have, and is this particular skill fine?"
 
 The full star table, one row and one column per skill, followed by each
 skill's coverage summary and a list of every pair at 2 stars or fewer with
-its reason.
+its reason. Pairs at 3 stars or more appear only here.
 
 ## JSON report structure
 
@@ -227,19 +229,16 @@ its reason.
       "decision_needed": true,
       "proposed_action": {"verb": "remove", "from": ["gke-observability-fork"]}
     }
-  ],
-  "left_alone": [
-    {"skill": "gcloud", "reason": "No overlap with the other skills here."}
   ]
 }
 ```
 
 Field rules:
 
-- `findings[].type` is one of the seven types in the table above.
+- `findings[].type` is one of the eight types in the table above.
 - `findings[].id` is stable across runs. It is a short hash of the type plus
   the sorted skill IDs involved, with a type prefix such as `dup-`, `conf-`,
-  `old-`, `dep-`, `ref-`, `place-`, `low-`. A finding keeps its ID until the
+  `old-`, `dep-`, `ref-`, `place-`, `low-`, `fm-`. A finding keeps its ID until the
   underlying skills change, so a decision recorded against it still applies
   next run.
 - `findings[].confidence` is one of `confident`, `likely`, `unsure`. Words,
@@ -255,6 +254,8 @@ Field rules:
 - Every finding has at least one `evidence` entry. A finding without
   evidence is a bug in the tool, not a finding.
 - `summary` is computed by the renderer and overwritten on every render.
+- `generated_at` and `repo` are written into the JSON by the first render and
+  kept, so rendering the same JSON twice gives the same markdown.
 - `inventory[].goal` is optional and written by the agent. Keep it to one
   sentence a newcomer would understand.
 - When two skills share a name, their `id` is `name (path)` so findings can

@@ -10,7 +10,10 @@ metadata:
 
 You are running SSS (Skillful-skills-scaler). The CLI does the bookkeeping. You
 do the judgement, and you write findings in the fixed shape described in
-`.sss/tool/docs/report-schema.md`. Read that file first.
+`.sss/tool/docs/report-schema.md`. Read that file first. The report itself
+follows the template next to this file, `templates/reorganize-report.md`;
+`sss report` fills its placeholders from your JSON, so you never write the
+markdown by hand. Read the template once so you know what each section asks.
 
 Run the CLI as `python3 .sss/tool/sss.py` from the repo root. All report files
 live in `.sss/reports/`, which is gitignored. Never commit them.
@@ -80,7 +83,8 @@ the same steps in sequence. The results must be identical either way.
      instruction. Each disagreement is a `conflict`: quote the exact lines from
      each side and say in one sentence what goes wrong if nothing is done. A
      pair can be both a duplicate and a conflict; file both.
-   - Pairs at 3 stars or more are not findings. Do not list them.
+   - Pairs at 3 stars or more are not findings. Do not list them anywhere; the
+     matrix appendix already shows their score.
 
 6. **Findings that need no judgement.**
    - every managed skill whose `status` is `stale`, `pending` or `conflict` is an
@@ -88,7 +92,10 @@ the same steps in sequence. The results must be identical either way.
    - every `missing_dependencies` entry is a `missing_dependency` finding with an
      `import` action;
    - every `broken_references` entry is a `broken_reference` finding with a
-     `fix_link` action.
+     `fix_link` action;
+   - every skill with a `frontmatter_error` is an `invalid_frontmatter` finding
+     (section 6, unuseful or out of place: a runtime may skip a skill whose
+     front matter does not parse) with a `patch` action, quoting the error.
 
 7. **Judge every skill on its own.** Fan out one worker per skill. Each writes
    the skill's one-line `goal` for the inventory, in words a newcomer would
@@ -116,7 +123,9 @@ the same steps in sequence. The results must be identical either way.
    ```bash
    python3 .sss/tool/sss.py report
    ```
-   This writes `.sss/reports/reorganize-report.md`: ten sections, then an
+   This writes `.sss/reports/reorganize-report.md`: nine sections (summary,
+   conflicts, out of date, duplicates, missing pieces, unuseful or out of
+   place, what we looked at, proposed changes, how to respond), then an
    appendix with every skill, its goal and its concerns, then the full coverage
    matrix. The renderer fills IDs, forces `decision_needed` for conflicts, for
    `unsure` findings and for any `remove` action, and prints a warning for every
@@ -140,7 +149,7 @@ the same steps in sequence. The results must be identical either way.
 Summarise for the user in plain language: how many skills, how many pairs
 scored, how many at 2 stars or fewer, what you changed, and exactly which IDs
 need their answer. A second-year CS student should be able to follow it. Give
-them the path `.sss/reports/reorganize-report.md` and point at section 10 for
+them the path `.sss/reports/reorganize-report.md` and point at section 9 for
 how to answer.
 
 ## Rules
