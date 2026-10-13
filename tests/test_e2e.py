@@ -100,8 +100,8 @@ def test_full_loop(source: Path, target: Path):
     assert rc == 0, res
     assert (target / ".sss" / "manifest.yaml").is_file()
     assert (target / ".sss" / "reports" / ".gitignore").read_text().startswith("*")
-    assert (target / ".agents" / "skills" / "update-skills").is_symlink()
-    assert (target / ".claude" / "skills" / "update-skills" / "SKILL.md").is_file()
+    assert (target / ".agents" / "skills" / "sync-skills").is_symlink()
+    assert (target / ".claude" / "skills" / "sync-skills" / "SKILL.md").is_file()
 
     # add a source: replica is vendored letter for letter, with LICENSE
     rc, res = run(target, "source", "add", "cookbook", f"file://{source}", "--ref", "main")
@@ -143,7 +143,7 @@ def test_full_loop(source: Path, target: Path):
     assert plan["sentence_checks"] == ["The final skill says three eggs."]
 
     # simulate the agent: first a wrong attempt (finalize must fail), then a right one
-    out_dir = target / plan["output_dir"]
+    out_dir = target / plan["output"]
     out_dir.mkdir(parents=True)
     (out_dir / "SKILL.md").write_text(OMELETTE)  # unchanged: still "two eggs", no pan.md
     rc, res = run(target, "finalize", "omelette")
@@ -167,9 +167,9 @@ def test_full_loop(source: Path, target: Path):
     # upstream changes salad only; sync marks salad stale, omelette stays ok
     (source / "skills" / "salad" / "SKILL.md").write_text(SALAD.replace("add dressing", "add dressing and nuts"))
     v2 = commit_all(source, "cookbook v2")
-    rc, res = run(target, "sync")
+    rc, res = run(target, "fetch")
     assert rc == 0, res
-    assert res["synced"][0]["changed"] is True and res["synced"][0]["new"] == v2
+    assert res["fetched"][0]["changed"] is True and res["fetched"][0]["new"] == v2
     by = {s["skill"]: s for s in res["status"]}
     assert by["salad"]["status"] == "stale", by["salad"]
     assert by["omelette"]["status"] == "ok", by["omelette"]
@@ -252,7 +252,7 @@ def test_local_source(target: Path):
 
 def test_copy_mode(source: Path, target: Path):
     assert run(target, "init", "--copy")[0] == 0
-    assert not (target / ".agents" / "skills" / "update-skills").is_symlink()
+    assert not (target / ".agents" / "skills" / "sync-skills").is_symlink()
     assert run(target, "source", "add", "cookbook", f"file://{source}")[0] == 0
     assert run(target, "import", "cookbook/salad")[0] == 0
     mirror = target / ".claude" / "skills" / "salad"
@@ -319,6 +319,44 @@ def test_generate_refuses_invalid_frontmatter(source: Path, target: Path):
     rc, res = run(target, "import", "cookbook/broken")
     assert rc == 2 and "not valid YAML" in res["stderr"]
     assert not (target / ".agents" / "skills" / "broken" / "SKILL.md").exists()
+
+
+def test_sync_alias_and_old_manifest_key(source: Path, target: Path):
+    assert run(target, "init")[0] == 0
+    mp = target / ".sss" / "manifest.yaml"
+    mp.write_text(mp.read_text().replace("skills_dir: .agents/skills", "output_dir: .agents/custom"))
+    # a wrong skills_root on a source nothing uses yet is corrected by adding again
+    rc, res = run(target, "source", "add", "cookbook", f"file://{source}", "--skills-root", "nope")
+    assert rc == 2
+    rc, res = run(target, "source", "add", "cookbook", f"file://{source}")
+    assert rc == 0 and res["available_skills"] == ["omelette", "salad"] and "fetched" in res
+    assert "skills_dir: .agents/custom" in mp.read_text() and "output_dir" not in mp.read_text()
+    assert run(target, "import", "cookbook/salad")[0] == 0
+    assert (target / ".agents" / "custom" / "salad" / "SKILL.md").is_file()   # old key honoured
+    rc, res = run(target, "sync")           # alias of fetch keeps both keys
+    assert rc == 0 and "fetched" in res and res["synced"] == res["fetched"]
+
+
+def test_links_prune_dangling_and_checks_validate(source: Path, target: Path):
+    assert run(target, "init")[0] == 0
+    stale = target / ".agents" / "skills" / "update-skills"
+    os.symlink("../../.sss/tool/skills/update-skills", stale)      # link from an older SSS
+    (target / ".claude" / "skills" / "update-skills").symlink_to("../../.agents/skills/update-skills")
+    rc, res = run(target, "links")
+    assert rc == 0 and not stale.is_symlink() and not (target / ".claude" / "skills" / "update-skills").is_symlink()
+    assert any(r["result"] == "pruned dangling link" for r in res)
+    # malformed checks are a clear error at plan time, and file-scoped checks work
+    assert run(target, "source", "add", "cookbook", f"file://{source}")[0] == 0
+    assert run(target, "import", "cookbook/omelette", "--patch", "x")[0] == 0
+    patch = target / ".sss" / "patches" / "omelette.md"
+    patch.write_text("---\ntarget: omelette\nintent: x\nchecks:\n  - {contains: pan, scope: pan.md}\n---\nbody\n")
+    rc, res = run(target, "plan", "omelette")
+    assert rc == 2 and "malformed checks" in res["stderr"]
+    patch.write_text("---\ntarget: omelette\nintent: x\nchecks:\n  - {contains: non-stick, file: pan.md}\n  - {contains: nowhere, file: pan.md}\n---\nbody\n")
+    out = target / ".agents" / "skills" / "omelette"; out.mkdir(parents=True)
+    (out / "SKILL.md").write_text(OMELETTE); (out / "pan.md").write_text("Use a non-stick pan.\n")
+    rc, res = run(target, "finalize", "omelette")
+    assert rc == 1 and res["failures"] == ["contains: 'nowhere' not found in pan.md"]
 
 
 def test_report_render(tmp_path: Path):

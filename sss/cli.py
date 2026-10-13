@@ -70,7 +70,7 @@ def cmd_init(args) -> int:
     if p.exists() and not args.force:
         m = Manifest.load(root)
     else:
-        m = Manifest(root=root, output_dir=args.output_dir, mirror_dirs=list(args.mirror or [".claude/skills"]),
+        m = Manifest(root=root, skills_dir=args.skills_dir, mirror_dirs=list(args.mirror or [".claude/skills"]),
                      link_mode="copy" if args.copy else "symlink")
         m.save()
     for d in (PATCHES_DIR, SOURCES_DIR, LOCAL_DIR, REPORTS_DIR):
@@ -83,7 +83,7 @@ def cmd_init(args) -> int:
         m.link_mode = "copy"
         m.save()
     res = links.sync_links(m)
-    _out(args, {"manifest": str(p.relative_to(root)), "output_dir": m.output_dir, "mirror_dirs": m.mirror_dirs, "link_mode": m.link_mode, "links": res})
+    _out(args, {"manifest": str(p.relative_to(root)), "skills_dir": m.skills_dir, "mirror_dirs": m.mirror_dirs, "link_mode": m.link_mode, "links": res})
     return 0
 
 
@@ -93,7 +93,7 @@ def cmd_source_add(args) -> int:
     res = {"source": src.to_dict()}
     if src.mode != "local" and not args.no_sync:
         try:
-            res["sync"] = sources.sync(m, src)
+            res["fetched"] = sources.sync(m, src)
         except Exception:
             m.sources = [s for s in m.sources if s.name != src.name]
             m.save()
@@ -121,11 +121,16 @@ def cmd_source_list(args) -> int:
     return 0
 
 
-def cmd_sync(args) -> int:
+def cmd_fetch(args) -> int:
+    """Refresh replicas from their sources of truth, then report staleness. One-way:
+    SSS pulls from sources and never pushes to them."""
     m = Manifest.load(_root(args))
     todo = [m.source(args.source)] if args.source else m.sources
     res = [sources.sync(m, s) for s in todo]
-    _out(args, {"synced": res, "status": status.check_all(m)})
+    payload = {"fetched": res, "status": status.check_all(m)}
+    if args.cmd == "sync":            # compatibility alias keeps the old key too
+        payload["synced"] = res
+    _out(args, payload)
     return 0
 
 
@@ -136,7 +141,7 @@ def cmd_import(args) -> int:
     if not skill_dir:
         raise ManifestError("use <source>/<skill-dir>")
     if skill_dir not in sources.list_skill_dirs(m, src):
-        raise ManifestError(f"{skill_dir} not found in source {src_name}. Available: {', '.join(sources.list_skill_dirs(m, src)) or 'none (run sss sync)'}")
+        raise ManifestError(f"{skill_dir} not found in source {src_name}. Available: {', '.join(sources.list_skill_dirs(m, src)) or 'none (run sss fetch)'}")
     name = args.as_name or skill_dir.rsplit("/", 1)[-1]
     if m.has_skill(name):
         raise ManifestError(f"skill already in manifest: {name}")
@@ -311,7 +316,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("init", help="create .sss/ and link SSS command skills into the repo")
-    s.add_argument("--output-dir", default=".agents/skills")
+    s.add_argument("--skills-dir", "--output-dir", dest="skills_dir", default=".agents/skills", help="where generated skills land (default .agents/skills)")
     s.add_argument("--mirror", action="append", help="extra skill dirs to link into (default .claude/skills)")
     s.add_argument("--copy", action="store_true", help="copy instead of symlink (Windows); remembered in the manifest as link_mode")
     s.add_argument("--force", action="store_true", help="rewrite manifest defaults")
@@ -327,7 +332,7 @@ def build_parser() -> argparse.ArgumentParser:
     rm = ss.add_parser("remove"); rm.add_argument("name"); rm.add_argument("--force", action="store_true", help="also drop skills imported from it")
     rm.set_defaults(fn=cmd_source_remove)
 
-    s = sub.add_parser("sync", help="refresh replicas and report staleness"); s.add_argument("source", nargs="?"); s.set_defaults(fn=cmd_sync)
+    s = sub.add_parser("fetch", aliases=["sync"], help="refresh source replicas and report staleness (one-way, pull only); `sync` is an alias"); s.add_argument("source", nargs="?"); s.set_defaults(fn=cmd_fetch)
 
     s = sub.add_parser("import", help="add <source>/<skill-dir> to the manifest")
     s.add_argument("ref"); s.add_argument("--as", dest="as_name"); s.add_argument("--patch", metavar="INTENT", help="also create a patch with this intent")
@@ -337,7 +342,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("skill", nargs="?"); s.add_argument("--fail-on-stale", action="store_true", help="exit 1 if anything is not ok (for CI)")
     s.set_defaults(fn=cmd_status)
 
-    s = sub.add_parser("generate", help="copy unpatched skills into the output dir"); s.add_argument("skill", nargs="?"); s.set_defaults(fn=cmd_generate)
+    s = sub.add_parser("generate", help="copy unpatched skills into skills_dir"); s.add_argument("skill", nargs="?"); s.set_defaults(fn=cmd_generate)
     s = sub.add_parser("plan", help="print the job for the agent to apply a skill's patches"); s.add_argument("skill"); s.set_defaults(fn=cmd_plan)
     s = sub.add_parser("finalize", help="validate and stamp an agent-written skill"); s.add_argument("skill"); s.add_argument("--model"); s.set_defaults(fn=cmd_finalize)
     s = sub.add_parser("conflict", help="record that a patch no longer applies"); s.add_argument("skill"); s.add_argument("--reason", required=True); s.set_defaults(fn=cmd_conflict)
@@ -345,7 +350,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("patch", help="manage patches"); ps = s.add_subparsers(dest="sub", required=True)
     n = ps.add_parser("new"); n.add_argument("skill"); n.add_argument("--intent"); n.add_argument("--name"); n.set_defaults(fn=cmd_patch_new)
 
-    s = sub.add_parser("links", help="re-link skills into output and mirror dirs"); s.add_argument("--copy", action="store_true"); s.set_defaults(fn=cmd_links)
+    s = sub.add_parser("links", help="re-link skills into skills_dir and mirror dirs"); s.add_argument("--copy", action="store_true"); s.set_defaults(fn=cmd_links)
     s = sub.add_parser("inventory", help="JSON of every skill in the repo plus duplicate candidates"); s.set_defaults(fn=cmd_inventory)
     s = sub.add_parser("matrix", help="coverage matrix bookkeeping: pending work, apply agent scores, show the table")
     ms = s.add_subparsers(dest="sub", required=True)

@@ -28,8 +28,13 @@ LICENSE_NAMES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "NOTICE", "NOTICE.md", 
 
 
 def add(m: Manifest, name: str, url: str | None, ref: str, mode: str, skills_root: str) -> Source:
-    if any(s.name == name for s in m.sources):
-        raise ManifestError(f"source already exists: {name}")
+    existing = next((s for s in m.sources if s.name == name), None)
+    if existing is not None:
+        users = [k.name for k in m.skills if k.source == name]
+        if users:
+            raise ManifestError(f"source already exists and is used by: {', '.join(users)}. Use `source remove {name} --force` first.")
+        # Nothing depends on it yet: a second `source add` corrects the entry (typically a wrong skills_root).
+        remove(m, name)
     if mode != "local" and not url:
         raise ManifestError("url is required unless mode is local")
     if mode == "local" and skills_root == "skills":

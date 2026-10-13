@@ -58,11 +58,11 @@ def _last_changed(root: Path, rel: str) -> str | None:
 
 def scan(m: Manifest | None, root: Path) -> dict:
     exclude = [SOURCES_DIR, TOOL_DIR, ".sss/local"]
-    # Mirror dirs normally hold symlinks into output_dir, which the realpath dedupe
+    # Mirror dirs normally hold symlinks into skills_dir, which the realpath dedupe
     # below already collapses. Only exclude a mirror when it holds real copies
     # (link_mode: copy) and is not the output dir itself under another name.
     if m and m.link_mode == "copy":
-        out_real = os.path.realpath(root / m.output_dir)
+        out_real = os.path.realpath(root / m.skills_dir)
         exclude += [d for d in m.mirror_dirs if os.path.realpath(root / d) != out_real]
     managed_status = {s["skill"]: s for s in statusmod.check_all(m)} if m else {}
     available: dict[str, list[str]] = {}

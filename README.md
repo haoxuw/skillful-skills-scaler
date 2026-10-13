@@ -12,11 +12,11 @@ Smart agents need a large number of skills, which:
 
 ## Commands
 
-### 1. Update
+### 1. Sync
 
-- **1.1** Import skills from a different source of truth (SoT).
-- **1.2** Define a semantic patch, and apply it on a SoT to create a variant (used as the active skills locally).
-- **1.3** Sync with updates from the SoT, and apply the patch.
+- **1.1** Import skills from a different source of truth (SoT). The manifest records where each skill comes from.
+- **1.2** Define a semantic patch, and apply it on a SoT to create a variant (used as the active skills locally). The manifest records which patches apply to which skill.
+- **1.3** Fetch updates from the SoT, and re-apply the patches. Sync is one-way: SSS pulls from the SoT and never pushes to it.
 
 ### 2. Reorganize
 
@@ -56,7 +56,7 @@ The final Skill01 becomes:
 
 ## Solution
 
-This repo is added to other repos as a git submodule at `.sss/tool`. Running `sss init` creates `.sss/` in the parent repo and symlinks the SSS command skills into the skill directories that Claude Code, Codex and Gemini CLI each read, so the parent repo gains `update-skills`, `reorganize-skills` and `deprecate-skills` in every runtime.
+This repo is added to other repos as a git submodule at `.sss/tool`. Running `sss init` creates `.sss/` in the parent repo and symlinks the SSS command skills into the skill directories that Claude Code, Codex and Gemini CLI each read, so the parent repo gains `sync-skills`, `reorganize-skills` and `deprecate-skills` in every runtime.
 
 ```bash
 git submodule add https://github.com/haoxuw/skillful-skills-scaler .sss/tool
@@ -65,7 +65,7 @@ python3 .sss/tool/sss.py source add cookbook https://github.com/org/cookbook --s
 python3 .sss/tool/sss.py import cookbook/omelette --patch "House omelette"
 ```
 
-The deterministic steps (sync, staleness, inventory, deprecate) are a small Python CLI. The model steps (applying a patch, judging duplicates and conflicts) are done by whichever agent the user is already in, guided by the command skills.
+The deterministic steps (fetch, staleness, inventory, deprecate) are a small Python CLI. The model steps (applying a patch, judging duplicates and conflicts) are done by whichever agent the user is already in, guided by the command skills.
 
 - [docs/integration.md](docs/integration.md): what SSS puts into a repo and how the commands work against it.
 - [docs/report-schema.md](docs/report-schema.md): the shape of the reorganize report.
