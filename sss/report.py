@@ -34,10 +34,10 @@ CONFLICT_OPTIONS = [
     "Keep both, and write a local patch that reconciles them.",
     "Open an issue upstream, and patch locally meanwhile.",
 ]
-QUESTIONS = [
+QUESTIONS = [  # same order as the report sections
+    ("conflict", "Do any skills give conflicting information?"),
     ("out_of_date", "Are any skills out of date?"),
     ("duplicate", "Are any skills duplicated?"),
-    ("conflict", "Do any skills give conflicting information?"),
     (("missing_dependency", "broken_reference"), "Are any skills missing pieces they refer to?"),
     (("out_of_place", "low_value"), "Are any skills unuseful or out of place?"),
 ]
@@ -170,8 +170,6 @@ def blocks(data: dict, matrix=None) -> dict:
         L += ["### Waiting on your decision", "", "One line per action. Several findings can point at the same action; all their IDs are listed.", ""]
         L += [f"- {x}" for x in _grouped_actions(waiting)]
     B["proposed_changes"] = _block(L)
-
-    B["left_alone"] = _block([f"- **{x.get('skill','')}**: {x.get('reason','')}" for x in data.get("left_alone", [])])
 
     L = []
     for i in data["inventory"]:

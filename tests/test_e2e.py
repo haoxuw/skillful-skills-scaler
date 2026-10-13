@@ -324,8 +324,10 @@ def test_report_render(tmp_path: Path):
     assert rc == 0
     md = (tmp_path / "r.md").read_text()
     back = json.loads(jp.read_text())
-    for i in range(1, 11):
+    for i in range(1, 10):
         assert f"## {i}. " in md
+    assert "## 10. " not in md and "left alone" not in md.lower()
+    assert md.index("## 2. Conflicts") < md.index("## 3. Out of date") < md.index("## 7. What we looked at")
     assert "| Are any skills duplicated? | Yes, 1 |" in md
     assert "| Are any skills out of date? | No |" in md
     assert back["summary"]["decisions_needed"] == 2          # remove and conflict are distinct actions

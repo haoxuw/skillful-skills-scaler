@@ -1,7 +1,7 @@
 # Skills reorganize report: {{repo}}
 
 Generated {{generated_at}} by SSS. This is a local working document in
-`.sss/reports/`; it is not committed. Sections 3 to 7 answer one question each.
+`.sss/reports/`; it is not committed. Sections 2 to 6 answer one question each.
 
 ## 1. Summary
 
@@ -9,9 +9,11 @@ Generated {{generated_at}} by SSS. This is a local working document in
 
 {{question_table}}
 
-## 2. What we looked at
+## 2. Conflicts
 
-{{inventory_table}}
+These skills disagree. An agent that loads both will get two answers.
+
+{{conflicts}}
 
 ## 3. Out of date
 
@@ -26,33 +28,27 @@ appendix). Keeping both wastes the agent's attention and lets them drift apart.
 
 {{duplicates}}
 
-## 5. Conflicts
-
-These skills disagree. An agent that loads both will get two answers.
-
-{{conflicts}}
-
-## 6. Missing pieces
+## 5. Missing pieces
 
 These skills point at files or other skills that are not here.
 
 {{missing_pieces}}
 
-## 7. Unuseful or out of place
+## 6. Unuseful or out of place
 
 These skills do not belong in this repo, or do not help an agent do anything.
 
 {{out_of_place}}
 
+## 7. What we looked at
+
+{{inventory_table}}
+
 ## 8. Proposed changes
 
 {{proposed_changes}}
 
-## 9. What we left alone
-
-{{left_alone}}
-
-## 10. How to respond
+## 9. How to respond
 
 Each item marked "needs decision" has an ID like `conf-81be44`. Reply with the
 ID and your choice, either as a comment on the pull request or by adding a line

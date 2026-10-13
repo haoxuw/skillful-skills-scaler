@@ -83,7 +83,8 @@ the same steps in sequence. The results must be identical either way.
      instruction. Each disagreement is a `conflict`: quote the exact lines from
      each side and say in one sentence what goes wrong if nothing is done. A
      pair can be both a duplicate and a conflict; file both.
-   - Pairs at 3 stars or more are not findings. Do not list them.
+   - Pairs at 3 stars or more are not findings. Do not list them anywhere; the
+     matrix appendix already shows their score.
 
 6. **Findings that need no judgement.**
    - every managed skill whose `status` is `stale`, `pending` or `conflict` is an
@@ -119,7 +120,9 @@ the same steps in sequence. The results must be identical either way.
    ```bash
    python3 .sss/tool/sss.py report
    ```
-   This writes `.sss/reports/reorganize-report.md`: ten sections, then an
+   This writes `.sss/reports/reorganize-report.md`: nine sections (summary,
+   conflicts, out of date, duplicates, missing pieces, unuseful or out of
+   place, what we looked at, proposed changes, how to respond), then an
    appendix with every skill, its goal and its concerns, then the full coverage
    matrix. The renderer fills IDs, forces `decision_needed` for conflicts, for
    `unsure` findings and for any `remove` action, and prints a warning for every
@@ -143,7 +146,7 @@ the same steps in sequence. The results must be identical either way.
 Summarise for the user in plain language: how many skills, how many pairs
 scored, how many at 2 stars or fewer, what you changed, and exactly which IDs
 need their answer. A second-year CS student should be able to follow it. Give
-them the path `.sss/reports/reorganize-report.md` and point at section 10 for
+them the path `.sss/reports/reorganize-report.md` and point at section 9 for
 how to answer.
 
 ## Rules
