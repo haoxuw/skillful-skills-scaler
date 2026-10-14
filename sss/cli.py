@@ -277,6 +277,16 @@ def cmd_matrix_apply(args) -> int:
     return 1 if res["errors"] else 0
 
 
+def cmd_matrix_prune(args) -> int:
+    root, m, mp = _matrix_paths(args)
+    inv = inventory.scan(m, root)
+    data = matrixmod.load(mp)
+    res = matrixmod.prune(inv, data)
+    matrixmod.save(mp, data)
+    print(json.dumps(res))
+    return 0
+
+
 def cmd_matrix_show(args) -> int:
     root, m, mp = _matrix_paths(args)
     inv = inventory.scan(m, root)
@@ -357,6 +367,7 @@ def build_parser() -> argparse.ArgumentParser:
     mp_ = ms.add_parser("pending", help="skills needing a summary and pairs needing a 0-5 star score"); mp_.set_defaults(fn=cmd_matrix_pending)
     ma = ms.add_parser("apply", help="merge {summaries:{id:text}, scores:[{a,b,stars,reason}]} from a JSON file or '-'"); ma.add_argument("file"); ma.set_defaults(fn=cmd_matrix_apply)
     msh = ms.add_parser("show", help="print the matrix as markdown"); msh.set_defaults(fn=cmd_matrix_show)
+    mpr = ms.add_parser("prune", help="drop cached summaries and scores for content no longer in the repo"); mpr.set_defaults(fn=cmd_matrix_prune)
 
     s = sub.add_parser("report", help="render the reorganize report (markdown) from its JSON; both live in .sss/reports/, which is gitignored")
     s.add_argument("json_file", nargs="?", help="default .sss/reports/reorganize-report.json"); s.add_argument("--out", help="default .sss/reports/reorganize-report.md"); s.set_defaults(fn=cmd_report)

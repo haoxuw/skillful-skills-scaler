@@ -51,6 +51,30 @@ def find_skill_dirs(root: Path, exclude: list[str]) -> list[Path]:
     return sorted(found.values(), key=lambda p: str(p))
 
 
+def _content_hash(d: Path, files: list[Path]) -> str:
+    """Identity of a skill for caching and identical-content detection: every file
+    in the folder by relative path and bytes, full SHA-256. SKILL.md is hashed
+    without its `name` and without SSS's own provenance block, so a rename or a
+    regeneration with the same content keeps the same identity. A change to a
+    reference file, a script, the description or the body changes it."""
+    import json as _json
+    h = hashlib.sha256()
+    for p in sorted(files, key=lambda x: str(x.relative_to(d))):
+        rel = str(p.relative_to(d))
+        h.update(rel.encode()); h.update(b"\0")
+        if rel == "SKILL.md":
+            meta, body = frontmatter.read(p)
+            meta = {k: v for k, v in meta.items() if k != "name" and not str(k).startswith("_")}
+            if isinstance(meta.get("metadata"), dict):
+                meta["metadata"] = {k: v for k, v in meta["metadata"].items() if k != "sss"}
+            h.update(_json.dumps(meta, sort_keys=True, default=str).encode()); h.update(b"\0")
+            h.update(body.strip().encode())
+        else:
+            h.update(p.read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()
+
+
 def _last_changed(root: Path, rel: str) -> str | None:
     proc = subprocess.run(["git", "log", "-1", "--format=%cs", "--", rel], cwd=str(root), capture_output=True, text=True)
     return proc.stdout.strip() or None
@@ -95,7 +119,7 @@ def scan(m: Manifest | None, root: Path) -> dict:
             "files": len(files),
             "words": words,
             "last_changed": _last_changed(root, rel),
-            "body_sha": hashlib.sha256(body.strip().encode()).hexdigest()[:12],
+            "body_sha": _content_hash(d, files),
             "headings": _HEAD.findall(body)[:40],
             "references": refs,
             "broken_references": broken,

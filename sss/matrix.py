@@ -68,7 +68,11 @@ def load(path: Path) -> dict:
     if not path.exists():
         return empty()
     data = json.loads(path.read_text(encoding="utf-8"))
-    if data.get("schema_version", 1) < 2:
+    try:
+        version = int(data.get("schema_version") or 1)
+    except (TypeError, ValueError):
+        version = 1
+    if version < 2:
         data = _migrate_v1(data)
     data.setdefault("skills", {})
     data.setdefault("pairs", {})
@@ -84,26 +88,42 @@ def _pair_key(skills: dict, a: str, b: str) -> str:
     return key(skills[a]["body_sha"], skills[b]["body_sha"])
 
 
+def _by_hash(inv: dict) -> dict[str, list[str]]:
+    groups: dict[str, list[str]] = {}
+    for s in inv["skills"]:
+        groups.setdefault(s["body_sha"], []).append(s["id"])
+    return {h: sorted(ids) for h, ids in groups.items()}
+
+
 def pending(inv: dict, data: dict) -> dict:
-    """What the agent still has to do, given the current inventory."""
+    """What the agent still has to do, given the current inventory. Work is per
+    distinct content: byte-identical skills share one summary and one row, and
+    `same_as` names the other ids that share it."""
     skills = {s["id"]: s for s in inv["skills"]}
+    groups = _by_hash(inv)
+    rep = {h: ids[0] for h, ids in groups.items()}            # one representative id per content
     need_summary = []
-    for sid, s in skills.items():
-        rec = data["skills"].get(s["body_sha"])
+    for h, ids in groups.items():
+        rec = data["skills"].get(h)
         if not rec or not rec.get("summary"):
-            need_summary.append({"id": sid, "path": s["path"], "description": s["description"]})
+            s = skills[ids[0]]
+            need_summary.append({"id": ids[0], "same_as": ids[1:], "path": s["path"], "description": s["description"]})
     need_score = []
-    for a, b in combinations(sorted(skills), 2):
-        if skills[a]["body_sha"] == skills[b]["body_sha"]:
-            continue  # identical bodies are a fact (0 stars), not a judgement
-        rec = data["pairs"].get(_pair_key(skills, a, b))
+    for ha, hb in combinations(sorted(groups), 2):
+        rec = data["pairs"].get(key(ha, hb))
         if not rec or rec.get("stars") is None:
-            need_score.append({"a": a, "b": b, "path_a": skills[a]["path"], "path_b": skills[b]["path"]})
+            a, b = sorted((rep[ha], rep[hb]))
+            need_score.append({"a": a, "b": b, "path_a": skills[a]["path"], "path_b": skills[b]["path"],
+                               "same_as_a": [i for i in groups[skills[a]["body_sha"]] if i != a],
+                               "same_as_b": [i for i in groups[skills[b]["body_sha"]] if i != b]})
     total_pairs = len(skills) * (len(skills) - 1) // 2
+    distinct = len(groups)
+    distinct_pairs = distinct * (distinct - 1) // 2
     return {
         "skills_total": len(skills), "pairs_total": total_pairs,
+        "distinct_contents": distinct, "distinct_pairs": distinct_pairs,
         "summaries_needed": need_summary, "scores_needed": need_score,
-        "scores_cached": total_pairs - len(need_score),
+        "scores_cached": distinct_pairs - len(need_score),
     }
 
 
@@ -120,6 +140,8 @@ def apply(inv: dict, data: dict, update: dict) -> dict:
         if a not in skills or b not in skills:
             errors.append(f"unknown skill in score: {a} / {b}"); continue
         a, b = sorted((a, b))   # keys and hash order are always sorted
+        if skills[a]["body_sha"] == skills[b]["body_sha"]:
+            errors.append(f"{a} vs {b}: byte-identical content is 0 stars automatically; do not score it"); continue
         try:
             stars = int(sc.get("stars"))
         except (TypeError, ValueError):
@@ -129,36 +151,48 @@ def apply(inv: dict, data: dict, update: dict) -> dict:
         reason = " ".join(str(sc.get("reason", "")).split())
         if stars <= OVERLAP_MAX and not reason:
             errors.append(f"{a} vs {b}: a score of {stars} needs a reason"); continue
-        data["pairs"][_pair_key(skills, a, b)] = {"stars": stars, "reason": reason, "last_ids": sorted((a, b))}
-    # Keep records only for content that still exists somewhere in the repo.
-    live = {s["body_sha"] for s in skills.values()}
-    data["skills"] = {k: v for k, v in data["skills"].items() if k in live}
-    data["pairs"] = {k: v for k, v in data["pairs"].items() if all(p in live for p in k.split("|", 1))}
+        data["pairs"][_pair_key(skills, a, b)] = {"stars": stars, "reason": reason, "last_ids": [a, b]}
+    # No pruning here: content that is absent right now may be back after a rename
+    # or a move. `prune` is a separate, explicit step.
     return {"errors": errors, **pending(inv, data)}
 
 
-def _scored_pairs(inv: dict, data: dict):
-    """Yield (id_a, id_b, record) for every live pair, including identical bodies at 0."""
+def prune(inv: dict, data: dict) -> dict:
+    """Drop records for content that no longer exists anywhere in the repo."""
+    live = {s["body_sha"] for s in inv["skills"]}
+    before = (len(data["skills"]), len(data["pairs"]))
+    data["skills"] = {k: v for k, v in data["skills"].items() if k in live}
+    data["pairs"] = {k: v for k, v in data["pairs"].items() if all(p in live for p in k.split("|", 1))}
+    return {"summaries_dropped": before[0] - len(data["skills"]), "pairs_dropped": before[1] - len(data["pairs"])}
+
+
+def scored_pairs(inv: dict, data: dict) -> dict[str, dict]:
+    """{'idA|idB': record} for every live pair with a score, identical content at 0.
+    Build once and pass around; it walks every pair."""
     skills = {s["id"]: s for s in inv["skills"]}
+    out: dict[str, dict] = {}
     for a, b in combinations(sorted(skills), 2):
         if skills[a]["body_sha"] == skills[b]["body_sha"]:
-            yield a, b, {"stars": 0, "reason": "Byte-for-byte identical bodies."}
+            out[key(a, b)] = {"stars": 0, "reason": "Byte-for-byte identical content."}
             continue
         rec = data["pairs"].get(_pair_key(skills, a, b))
         if rec and rec.get("stars") is not None:
-            yield a, b, rec
+            out[key(a, b)] = rec
+    return out
 
 
-def duplicates(inv: dict, data: dict) -> list[dict]:
+def duplicates(inv: dict, data: dict, scored: dict | None = None) -> list[dict]:
     """Pairs at 0 or 1 star, for the report's duplicate section."""
-    out = [{"skills": [a, b], "stars": r["stars"], "reason": r.get("reason", "")}
-           for a, b, r in _scored_pairs(inv, data) if r["stars"] <= DUPLICATE_MAX]
+    scored = scored if scored is not None else scored_pairs(inv, data)
+    out = [{"skills": k.split("|", 1), "stars": r["stars"], "reason": r.get("reason", "")}
+           for k, r in scored.items() if r["stars"] <= DUPLICATE_MAX]
     return sorted(out, key=lambda x: (x["stars"], x["skills"]))
 
 
-def overlaps(inv: dict, data: dict) -> list[dict]:
-    out = [{"skills": [a, b], "stars": 2, "reason": r.get("reason", "")}
-           for a, b, r in _scored_pairs(inv, data) if r["stars"] == OVERLAP_MAX]
+def overlaps(inv: dict, data: dict, scored: dict | None = None) -> list[dict]:
+    scored = scored if scored is not None else scored_pairs(inv, data)
+    out = [{"skills": k.split("|", 1), "stars": 2, "reason": r.get("reason", "")}
+           for k, r in scored.items() if r["stars"] == OVERLAP_MAX]
     return sorted(out, key=lambda x: x["skills"])
 
 
@@ -172,7 +206,7 @@ def render_table(inv: dict, data: dict) -> str:
     L.append("| Skill | " + " | ".join(short[s] for s in ids) + " |")
     L.append("| --- | " + " | ".join("---" for _ in ids) + " |")
     skills = {s["id"]: s for s in inv["skills"]}
-    scored = {key(a, b): r for a, b, r in _scored_pairs(inv, data)}
+    scored = scored_pairs(inv, data)
     for a in ids:
         cells = []
         for b in ids:
@@ -186,7 +220,7 @@ def render_table(inv: dict, data: dict) -> str:
     for sid in ids:
         rec = data["skills"].get(skills[sid]["body_sha"]) or {}
         L.append(f"- **{short[sid]} {sid}**: {rec.get('summary') or '(no summary yet)'}")
-    low = [x for x in duplicates(inv, data)] + overlaps(inv, data)
+    low = duplicates(inv, data, scored) + overlaps(inv, data, scored)
     if low:
         L += ["", "Pairs at 2 stars or fewer:", ""]
         for x in low:

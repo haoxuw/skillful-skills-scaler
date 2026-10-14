@@ -281,18 +281,36 @@ def test_matrix(source: Path, target: Path):
     assert run(target, "generate", "salad")[0] == 0
     rc, pend = run(target, "matrix", "pending")
     assert [x["id"] for x in pend["summaries_needed"]] == ["salad"] and len(pend["scores_needed"]) == 1
-    # renaming a skill keeps its cached scores (keys are content hashes)
+    # renaming a skill keeps its cached scores (keys are content hashes), even when
+    # an apply happens while the skill is absent
     (target / "scores.json").write_text(json.dumps({"summaries": {"salad": "Makes a salad with nuts."}, "scores": [{"a": "salad", "b": "omelette", "stars": 4, "reason": ""}]}))
     assert run(target, "matrix", "apply", "scores.json")[0] == 0
     assert run(target, "deprecate", "salad")[0] == 0
+    (target / "empty.json").write_text("{}")
+    assert run(target, "matrix", "apply", "empty.json")[0] == 0
     assert run(target, "import", "cookbook/salad", "--as", "green-salad")[0] == 0
     rc, pend = run(target, "matrix", "pending")
     assert rc == 0 and pend["summaries_needed"] == [] and pend["scores_needed"] == [], pend
+    # a change to a supporting file invalidates the cache; identical twins share one row
+    (target / ".sss" / "sources" / "cookbook" / "skills" / "omelette" / "pan.md").write_text("Use a cast-iron pan.\n")
+    assert run(target, "generate", "omelette")[0] == 0
+    rc, pend = run(target, "matrix", "pending")
+    assert [x["id"] for x in pend["summaries_needed"]] == ["omelette"] and len(pend["scores_needed"]) == 1
+    assert run(target, "import", "cookbook/salad", "--as", "salad-twin")[0] == 0   # identical to green-salad
+    rc, pend = run(target, "matrix", "pending")
+    assert pend["distinct_contents"] == 2 and len(pend["scores_needed"]) == 1 and pend["scores_needed"][0]["same_as_a"] == ["salad-twin"] or pend["scores_needed"][0]["same_as_b"] == ["salad-twin"]
+    (target / "twin.json").write_text(json.dumps({"scores": [{"a": "green-salad", "b": "salad-twin", "stars": 3, "reason": "x"}]}))
+    rc, res = run(target, "matrix", "apply", "twin.json")
+    assert rc == 1 and "0 stars automatically" in res["errors"][0]
+    rc, res = run(target, "matrix", "prune")
+    assert rc == 0 and res["pairs_dropped"] >= 1   # the old omelette content's records go now, not before
     # a v1 (name-keyed) cache file is migrated, not discarded
+    rc, inv = run(target, "inventory")
+    sha = {x["id"]: x["body_sha"] for x in inv["skills"]}
     mp = target / ".sss" / "reports" / "similarity.json"
-    v2 = json.loads(mp.read_text()); sha_s = next(k for k, v in v2["skills"].items() if v["last_id"] == "salad" or v["last_id"] == "green-salad"); sha_o = next(k for k, v in v2["skills"].items() if v["last_id"] == "omelette")
-    mp.write_text(json.dumps({"schema_version": 1, "skills": {"green-salad": {"body_sha": sha_s, "summary": "s"}, "omelette": {"body_sha": sha_o, "summary": "o"}},
-                               "pairs": {"green-salad|omelette": {"stars": 3, "reason": "", "scored_with": sorted([sha_s, sha_o])}}}))
+    mp.write_text(json.dumps({"schema_version": 1,
+                               "skills": {"green-salad": {"body_sha": sha["green-salad"], "summary": "s"}, "omelette": {"body_sha": sha["omelette"], "summary": "o"}},
+                               "pairs": {"green-salad|omelette": {"stars": 3, "reason": "", "scored_with": sorted([sha["green-salad"], sha["omelette"]])}}}))
     rc, pend = run(target, "matrix", "pending")
     assert rc == 0 and pend["scores_needed"] == [] and pend["summaries_needed"] == [], pend
     # the report appends the matrix
