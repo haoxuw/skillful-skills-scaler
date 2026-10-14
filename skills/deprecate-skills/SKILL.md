@@ -26,6 +26,12 @@ You are running SSS (Skillful-skills-scaler). Run the CLI as
    every remaining mention of the skill name in markdown, YAML, JSON and TOML files
    outside the replicas.
 
+   Two other outcomes are possible. If the name is not in the manifest but its
+   folder carries SSS provenance, or only dangling links remain, the command
+   removes that leftover and says so in `note`. If the name is a skill the repo
+   wrote itself, the command refuses and names where it lives; do not delete it
+   yourself unless the user asks for that explicitly.
+
 3. **Handle each reference.**
    - In a local skill or a doc: edit it to drop or replace the mention.
    - In a generated skill: do not edit the output. Add or extend that skill's patch

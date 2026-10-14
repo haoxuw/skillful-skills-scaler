@@ -115,8 +115,7 @@ def scan(m: Manifest | None, root: Path) -> dict:
     # below already collapses. Only exclude a mirror when it holds real copies
     # (link_mode: copy) and is not the output dir itself under another name.
     if m and m.link_mode == "copy":
-        out_real = os.path.realpath(root / m.skills_dir)
-        exclude += [d for d in m.mirror_dirs if os.path.realpath(root / d) != out_real]
+        exclude += m.real_mirror_dirs()
     managed_status = {s["skill"]: s for s in statusmod.check_all(m)} if m else {}
     available: dict[str, list[str]] = {}
     if m:
@@ -129,7 +128,7 @@ def scan(m: Manifest | None, root: Path) -> dict:
         meta, body = frontmatter.read(d / "SKILL.md")
         files = [p for p in d.rglob("*") if p.is_file()]
         words = sum(len(p.read_text(encoding="utf-8", errors="replace").split()) for p in files if p.suffix.lower() in (".md", ".txt"))
-        prov = (meta.get("metadata") or {}).get("sss") if isinstance(meta.get("metadata"), dict) else None
+        prov = frontmatter.provenance(meta) or None
         refs, broken = _references(d, body, files)
         rel = os.path.relpath(d, root)
         name = str(meta.get("name") or d.name)

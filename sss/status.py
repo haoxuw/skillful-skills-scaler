@@ -30,7 +30,7 @@ def provenance(m: Manifest, skill: Skill) -> dict:
     if not p.is_file():
         return {}
     meta, _ = frontmatter.read(p)
-    return ((meta.get("metadata") or {}).get("sss") or {}) if isinstance(meta.get("metadata"), dict) else {}
+    return frontmatter.provenance(meta)
 
 
 def check(m: Manifest, skill: Skill) -> dict:
