@@ -25,20 +25,22 @@ from .manifest import Manifest, ManifestError, SOURCES_DIR, TOOL_DIR
 
 
 def run(m: Manifest, name: str, keep_patches: bool = False) -> dict:
+    """Remove a skill SSS manages. A skill the manifest does not list is the repo's
+    own; SSS never deletes those, it only tells you where it is."""
+    if not m.has_skill(name):
+        where = m.root / m.skills_dir / name
+        hint = f" It exists at {m.skills_dir}/{name}; remove it by hand if that is wanted." if where.exists() else ""
+        raise ManifestError(f"{name} is not managed by SSS (not in the manifest).{hint}")
+    skill = m.skill(name)
     removed: list[str] = []
-    skill = None
-    if m.has_skill(name):
-        skill = m.skill(name)
-        m.skills = [k for k in m.skills if k.name != name]
-        if not keep_patches:
-            for p in skill.patches:
-                fp = m.root / p
-                if fp.exists():
-                    fp.unlink(); removed.append(p)
-        m.save()
+    m.skills = [k for k in m.skills if k.name != name]
+    if not keep_patches:
+        for p in skill.patches:
+            fp = m.root / p
+            if fp.exists():
+                fp.unlink(); removed.append(p)
+    m.save()
     removed += links.unlink_skill(m, name)
-    if skill is None and not removed:
-        raise ManifestError(f"{name} is not in the manifest and has no generated output")
     return {"skill": name, "removed": removed, "references": find_references(m.root, name, m)}
 
 
@@ -46,7 +48,7 @@ def find_references(root: Path, name: str, m: Manifest | None) -> list[dict]:
     pat = re.compile(r"(?<![\w-])" + re.escape(name) + r"(?![\w-])")
     exclude = {os.path.realpath(root / e) for e in [SOURCES_DIR, TOOL_DIR, ".git"]}
     if m:
-        exclude |= {os.path.realpath(root / d) for d in m.mirror_dirs}
+        exclude |= {os.path.realpath(root / d) for d in m.real_mirror_dirs()}
     hits = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and os.path.realpath(os.path.join(dirpath, d)) not in exclude]

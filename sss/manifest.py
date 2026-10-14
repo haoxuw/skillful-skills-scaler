@@ -25,6 +25,19 @@ from pathlib import Path
 
 import yaml
 
+
+class _Dumper(yaml.SafeDumper):
+    """Indent block sequences under their key, the style prettier and most
+    linters expect, so a committed manifest passes a repo's YAML checks."""
+
+    def increase_indent(self, flow=False, indentless=False):
+        return super().increase_indent(flow, False)
+
+
+def dump_yaml(data) -> str:
+    return yaml.dump(data, Dumper=_Dumper, sort_keys=False, allow_unicode=True, default_flow_style=False)
+
+
 SSS_DIR = ".sss"
 MANIFEST = f"{SSS_DIR}/manifest.yaml"
 PATCHES_DIR = f"{SSS_DIR}/patches"
@@ -158,7 +171,7 @@ class Manifest:
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
         header = "# Managed by SSS. People edit skills_dir, mirror_dirs, link_mode, sources (not synced_*),\n# and skills name/from/patches. SSS writes the rest.\n"
-        self.path.write_text(header + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+        self.path.write_text(header + dump_yaml(data), encoding="utf-8")
 
     # ---- lookups -----------------------------------------------------
     def source(self, name: str) -> Source:
@@ -175,6 +188,14 @@ class Manifest:
 
     def has_skill(self, name: str) -> bool:
         return any(k.name == name for k in self.skills)
+
+    def real_mirror_dirs(self) -> list[str]:
+        """Mirror dirs that are not just another name for skills_dir. Some repos
+        commit `.claude/skills -> ../.agents/skills`; linking into that would
+        link a folder onto itself."""
+        import os
+        out_real = os.path.realpath(self.root / self.skills_dir)
+        return [d for d in self.mirror_dirs if os.path.realpath(self.root / d) != out_real]
 
     def output_rel(self, skill: Skill) -> str:
         return f"{self.skills_dir.rstrip('/')}/{skill.name}"

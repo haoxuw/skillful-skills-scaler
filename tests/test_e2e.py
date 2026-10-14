@@ -298,6 +298,22 @@ def test_inventory_when_claude_skills_is_a_symlink_to_agents_skills(target: Path
     rc, inv = run(target, "inventory")
     assert rc == 0 and [s["id"] for s in inv["skills"]] == ["local-one"], inv
     assert inv["skills"][0]["path"] == ".agents/skills/local-one"   # real location, never the mirror
+    # an aliased mirror gets no per-skill links, and links/deprecate do not trip on it
+    assert not (target / ".agents" / "skills" / "update-skills").exists()
+    rc, res = run(target, "links")
+    assert rc == 0 and not any("skipped" in r["result"] for r in res), res
+    (target / "notes.md").write_text("see local-one\n")
+    rc, res = run(target, "source", "add", "mine", "--mode", "local"); assert rc == 0
+    (target / ".sss" / "local" / "two").mkdir(); (target / ".sss" / "local" / "two" / "SKILL.md").write_text("---\nname: two\ndescription: Two.\n---\n\nUse local-one.\n")
+    assert run(target, "import", "mine/two")[0] == 0
+    rc, res = run(target, "deprecate", "two")
+    assert rc == 0
+    rc, res = run(target, "deprecate", "local-one")
+    assert rc == 2 and "not managed" in res["stderr"]
+    assert (target / ".agents" / "skills" / "local-one" / "SKILL.md").is_file()   # the repo's own skill is untouched
+    # manifest is prettier-style YAML (sequences indented under their key)
+    text = (target / ".sss" / "manifest.yaml").read_text()
+    assert "mirror_dirs:\n  - .claude/skills" in text, text
 
 
 def test_frontmatter_repair_keeps_structure():
