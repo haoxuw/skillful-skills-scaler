@@ -20,10 +20,13 @@ status, conflict.
 from __future__ import annotations
 
 import datetime as _dt
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+
+from .yamlfmt import dump_yaml
 
 SSS_DIR = ".sss"
 MANIFEST = f"{SSS_DIR}/manifest.yaml"
@@ -158,7 +161,7 @@ class Manifest:
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
         header = "# Managed by SSS. People edit skills_dir, mirror_dirs, link_mode, sources (not synced_*),\n# and skills name/from/patches. SSS writes the rest.\n"
-        self.path.write_text(header + yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+        self.path.write_text(header + dump_yaml(data), encoding="utf-8")
 
     # ---- lookups -----------------------------------------------------
     def source(self, name: str) -> Source:
@@ -175,6 +178,13 @@ class Manifest:
 
     def has_skill(self, name: str) -> bool:
         return any(k.name == name for k in self.skills)
+
+    def real_mirror_dirs(self) -> list[str]:
+        """Mirror dirs that are not just another name for skills_dir. Some repos
+        commit `.claude/skills -> ../.agents/skills`; linking into that would
+        link a folder onto itself."""
+        out_real = os.path.realpath(self.root / self.skills_dir)
+        return [d for d in self.mirror_dirs if os.path.realpath(self.root / d) != out_real]
 
     def output_rel(self, skill: Skill) -> str:
         return f"{self.skills_dir.rstrip('/')}/{skill.name}"
