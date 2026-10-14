@@ -281,11 +281,25 @@ def test_matrix(source: Path, target: Path):
     assert run(target, "generate", "salad")[0] == 0
     rc, pend = run(target, "matrix", "pending")
     assert [x["id"] for x in pend["summaries_needed"]] == ["salad"] and len(pend["scores_needed"]) == 1
+    # renaming a skill keeps its cached scores (keys are content hashes)
+    (target / "scores.json").write_text(json.dumps({"summaries": {"salad": "Makes a salad with nuts."}, "scores": [{"a": "salad", "b": "omelette", "stars": 4, "reason": ""}]}))
+    assert run(target, "matrix", "apply", "scores.json")[0] == 0
+    assert run(target, "deprecate", "salad")[0] == 0
+    assert run(target, "import", "cookbook/salad", "--as", "green-salad")[0] == 0
+    rc, pend = run(target, "matrix", "pending")
+    assert rc == 0 and pend["summaries_needed"] == [] and pend["scores_needed"] == [], pend
+    # a v1 (name-keyed) cache file is migrated, not discarded
+    mp = target / ".sss" / "reports" / "similarity.json"
+    v2 = json.loads(mp.read_text()); sha_s = next(k for k, v in v2["skills"].items() if v["last_id"] == "salad" or v["last_id"] == "green-salad"); sha_o = next(k for k, v in v2["skills"].items() if v["last_id"] == "omelette")
+    mp.write_text(json.dumps({"schema_version": 1, "skills": {"green-salad": {"body_sha": sha_s, "summary": "s"}, "omelette": {"body_sha": sha_o, "summary": "o"}},
+                               "pairs": {"green-salad|omelette": {"stars": 3, "reason": "", "scored_with": sorted([sha_s, sha_o])}}}))
+    rc, pend = run(target, "matrix", "pending")
+    assert rc == 0 and pend["scores_needed"] == [] and pend["summaries_needed"] == [], pend
     # the report appends the matrix
     (target / ".sss" / "reports" / "reorganize-report.json").write_text(json.dumps({"inventory": [], "findings": []}))
     assert run(target, "report")[0] == 0
     md = (target / ".sss" / "reports" / "reorganize-report.md").read_text()
-    assert "## Appendix: coverage matrix" in md and "| **S1** omelette |" in md
+    assert "## Appendix: coverage matrix" in md and "| **S1** green-salad |" in md
 
 
 def test_inventory_when_claude_skills_is_a_symlink_to_agents_skills(target: Path):
