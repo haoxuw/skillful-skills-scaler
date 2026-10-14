@@ -16,6 +16,7 @@ The model only judges candidates this module surfaces."""
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -49,6 +50,58 @@ def find_skill_dirs(root: Path, exclude: list[str]) -> list[Path]:
             found.setdefault(real, where)
             dirnames[:] = []                         # skills do not nest
     return sorted(found.values(), key=lambda p: str(p))
+
+
+_JUNK = {".DS_Store", "Thumbs.db", "__pycache__"}
+_JUNK_SUFFIX = (".swp", ".swo", ".orig", ".rej", ".pyc", "~")
+
+
+def _is_junk(rel: str) -> bool:
+    parts = rel.replace(os.sep, "/").split("/")
+    return any(x in _JUNK or x.startswith(".") for x in parts) or rel.endswith(_JUNK_SUFFIX)
+
+
+def _plain(obj):
+    """Keys as strings, recursively, so json can sort mixed YAML 1.1 keys (`on:`, `1:`)."""
+    if isinstance(obj, dict):
+        return {str(k): _plain(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_plain(v) for v in obj]
+    return obj
+
+
+def content_hash(d: Path, files: list[Path], meta: dict, body: str) -> str:
+    """Identity of a skill for caching and identical-content detection: every file
+    in the folder by relative path and bytes, full SHA-256, skipping editor and OS
+    junk. SKILL.md contributes its front matter without `name` and without SSS's
+    provenance block, plus its body, so a rename or a regeneration with the same
+    content keeps the same identity. A change to a reference file, a script, the
+    description or the body changes it."""
+    h = hashlib.sha256()
+    for p in sorted(files, key=lambda x: str(x.relative_to(d))):
+        rel = str(p.relative_to(d))
+        if _is_junk(rel):
+            continue
+        h.update(rel.encode()); h.update(b"\0")
+        if rel == "SKILL.md":
+            m = {k: v for k, v in meta.items() if k != "name" and not str(k).startswith("_")}
+            if isinstance(m.get("metadata"), dict):
+                md = {k: v for k, v in m["metadata"].items() if k != "sss"}
+                if md:
+                    m["metadata"] = md
+                else:
+                    del m["metadata"]
+            h.update(json.dumps(_plain(m), sort_keys=True, default=str).encode()); h.update(b"\0")
+            h.update(body.strip().encode())
+        else:
+            h.update(p.read_bytes())
+        h.update(b"\0")
+    return h.hexdigest()
+
+
+def legacy_body_hash(body: str) -> str:
+    """The pre-v2 identity (12 hex of the SKILL.md body), kept only to migrate old caches."""
+    return hashlib.sha256(body.strip().encode()).hexdigest()[:12]
 
 
 def _last_changed(root: Path, rel: str) -> str | None:
@@ -94,7 +147,8 @@ def scan(m: Manifest | None, root: Path) -> dict:
             "files": len(files),
             "words": words,
             "last_changed": _last_changed(root, rel),
-            "body_sha": hashlib.sha256(body.strip().encode()).hexdigest()[:12],
+            "content_sha": content_hash(d, files, meta, body),
+            "legacy_sha": legacy_body_hash(body),
             "headings": _HEAD.findall(body)[:40],
             "references": refs,
             "broken_references": broken,
@@ -102,6 +156,8 @@ def scan(m: Manifest | None, root: Path) -> dict:
             "mentions_skills": sorted(set(_TICK.findall(body))),
             "_body": body,
         })
+    for s_ in skills:
+        s_["body_sha"] = s_["content_sha"]   # old name, kept one release for readers of the JSON
     # Two skills with the same name must still be told apart in findings.
     counts = Counter(s["name"] for s in skills)
     for s in skills:
@@ -153,10 +209,11 @@ def _references(d: Path, body: str, files: list[Path]) -> tuple[list[str], list[
 
 
 def identical(skills: list[dict]) -> list[dict]:
-    """Groups of skills whose bodies are byte-for-byte the same. This is a fact,
-    not a similarity guess; everything softer is scored by the model in the
-    coverage matrix (see matrix.py)."""
+    """Groups of skills whose content is the same: every file byte for byte, with
+    the skill's own name and SSS provenance ignored. This is a fact, not a
+    similarity guess; everything softer is scored by the model in the coverage
+    matrix (see matrix.py)."""
     by_sha: dict[str, list[str]] = {}
     for s in skills:
-        by_sha.setdefault(s["body_sha"], []).append(s["id"])
+        by_sha.setdefault(s["content_sha"], []).append(s["id"])
     return [{"skills": sorted(ids)} for ids in by_sha.values() if len(ids) > 1]
