@@ -307,7 +307,7 @@ def test_inventory_when_claude_skills_is_a_symlink_to_agents_skills(target: Path
     (target / ".sss" / "local" / "two").mkdir(); (target / ".sss" / "local" / "two" / "SKILL.md").write_text("---\nname: two\ndescription: Two.\n---\n\nUse local-one.\n")
     assert run(target, "import", "mine/two")[0] == 0
     rc, res = run(target, "deprecate", "two")
-    assert rc == 0
+    assert rc == 0 and any(r["file"] == "notes.md" for r in res["references"]) is False  # notes.md names local-one, not two
     rc, res = run(target, "deprecate", "local-one")
     assert rc == 2 and "not managed" in res["stderr"]
     assert (target / ".agents" / "skills" / "local-one" / "SKILL.md").is_file()   # the repo's own skill is untouched
@@ -373,6 +373,32 @@ def test_links_prune_dangling_and_checks_validate(source: Path, target: Path):
     (out / "SKILL.md").write_text(OMELETTE); (out / "pan.md").write_text("Use a non-stick pan.\n")
     rc, res = run(target, "finalize", "omelette")
     assert rc == 1 and res["failures"] == ["contains: 'nowhere' not found in pan.md"]
+
+
+def test_prune_without_own_skills_and_orphan_deprecate(source: Path, target: Path, monkeypatch):
+    from sss import links as linksmod
+    from sss.manifest import Manifest
+    assert run(target, "init")[0] == 0
+    assert run(target, "source", "add", "cookbook", f"file://{source}")[0] == 0
+    assert run(target, "import", "cookbook/salad")[0] == 0
+    # a mirror link whose target is gone is pruned even when SSS's own skills folder is absent
+    import shutil; shutil.rmtree(target / ".agents" / "skills" / "salad")
+    monkeypatch.setattr(linksmod, "OWN_SKILLS", target / "nowhere")
+    res = linksmod.sync_links(Manifest.load(target))
+    assert not (target / ".claude" / "skills" / "salad").is_symlink()
+    assert any(r["result"] == "pruned dangling link" for r in res)
+    # orphaned SSS output (manifest entry removed by hand) is still removable
+    assert run(target, "import", "cookbook/omelette")[0] == 0
+    mp = target / ".sss" / "manifest.yaml"
+    mp.write_text(mp.read_text().replace("- name: omelette", "- name: omelette-renamed"))
+    rc, res = run(target, "deprecate", "omelette")
+    assert rc == 0 and "orphaned" in res["note"]
+    assert not (target / ".agents" / "skills" / "omelette").exists() and not (target / ".claude" / "skills" / "omelette").exists()
+    # generated front matter uses the same indented YAML style
+    assert run(target, "deprecate", "omelette-renamed")[0] in (0, 2)
+    assert run(target, "generate", "salad")[0] == 0
+    text = (target / ".agents" / "skills" / "salad" / "SKILL.md").read_text()
+    assert "metadata:\n  sss:\n    source: cookbook" in text   # indented, prettier-style front matter
 
 
 def test_report_render(tmp_path: Path):

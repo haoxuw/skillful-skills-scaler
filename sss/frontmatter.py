@@ -19,6 +19,8 @@ from pathlib import Path
 
 import yaml
 
+from .yamlfmt import dump_yaml
+
 _FM = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n?", re.S)
 
 
@@ -97,7 +99,7 @@ def is_valid(meta: dict) -> bool:
 
 def join(meta: dict, body: str) -> str:
     meta = {k: v for k, v in meta.items() if not str(k).startswith("_")}  # internal flags never reach disk
-    dumped = yaml.safe_dump(meta, sort_keys=False, allow_unicode=True).rstrip("\n")
+    dumped = dump_yaml(meta).rstrip("\n")
     body = body.lstrip("\n")
     return f"---\n{dumped}\n---\n\n{body}"
 

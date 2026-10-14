@@ -19,17 +19,31 @@ import os
 import re
 from pathlib import Path
 
-from . import links
+from . import frontmatter, links
 from .inventory import SKIP_DIRS
 from .manifest import Manifest, ManifestError, SOURCES_DIR, TOOL_DIR
 
 
+def _generated_by_sss(path: Path) -> bool:
+    md = path / "SKILL.md"
+    if not md.is_file():
+        return False
+    meta, _ = frontmatter.read(md)
+    return isinstance(meta.get("metadata"), dict) and "sss" in meta["metadata"]
+
+
 def run(m: Manifest, name: str, keep_patches: bool = False) -> dict:
-    """Remove a skill SSS manages. A skill the manifest does not list is the repo's
-    own; SSS never deletes those, it only tells you where it is."""
+    """Remove a skill SSS manages. Output SSS generated earlier but whose manifest
+    entry is already gone is also removed (its SKILL.md carries SSS provenance).
+    A skill with no provenance is the repo's own; SSS never deletes those."""
     if not m.has_skill(name):
-        where = m.root / m.skills_dir / name
-        hint = f" It exists at {m.skills_dir}/{name}; remove it by hand if that is wanted." if where.exists() else ""
+        places = [d for d in [m.skills_dir, *m.real_mirror_dirs()] if (m.root / d / name).exists()]
+        if places and _generated_by_sss(m.root / places[0] / name):
+            removed = links.unlink_skill(m, name)
+            return {"skill": name, "removed": removed, "note": "orphaned SSS output removed; it had no manifest entry",
+                    "references": find_references(m.root, name, m)}
+        hint = (f" It exists at {', '.join(f'{d}/{name}' for d in places)} without SSS provenance; remove it by hand if that is wanted."
+                if places else "")
         raise ManifestError(f"{name} is not managed by SSS (not in the manifest).{hint}")
     skill = m.skill(name)
     removed: list[str] = []

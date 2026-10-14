@@ -83,10 +83,11 @@ def cmd_init(args) -> int:
         m.link_mode = "copy"
         m.save()
     res = links.sync_links(m)
-    aliases = [d for d in m.mirror_dirs if d not in m.real_mirror_dirs()]
+    real = set(m.real_mirror_dirs())
+    aliases = [d for d in m.mirror_dirs if d not in real]
     payload = {"manifest": str(p.relative_to(root)), "skills_dir": m.skills_dir, "mirror_dirs": m.mirror_dirs, "link_mode": m.link_mode, "links": res}
     if aliases:
-        payload["note"] = f"{', '.join(aliases)} already points at {m.skills_dir}; no per-skill links are made there."
+        payload["note"] = f"{', '.join(aliases)} and {m.skills_dir} are the same directory; no per-skill links are made there."
     _out(args, payload)
     return 0
 

@@ -20,23 +20,13 @@ status, conflict.
 from __future__ import annotations
 
 import datetime as _dt
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
-
-class _Dumper(yaml.SafeDumper):
-    """Indent block sequences under their key, the style prettier and most
-    linters expect, so a committed manifest passes a repo's YAML checks."""
-
-    def increase_indent(self, flow=False, indentless=False):
-        return super().increase_indent(flow, False)
-
-
-def dump_yaml(data) -> str:
-    return yaml.dump(data, Dumper=_Dumper, sort_keys=False, allow_unicode=True, default_flow_style=False)
-
+from .yamlfmt import dump_yaml
 
 SSS_DIR = ".sss"
 MANIFEST = f"{SSS_DIR}/manifest.yaml"
@@ -193,7 +183,6 @@ class Manifest:
         """Mirror dirs that are not just another name for skills_dir. Some repos
         commit `.claude/skills -> ../.agents/skills`; linking into that would
         link a folder onto itself."""
-        import os
         out_real = os.path.realpath(self.root / self.skills_dir)
         return [d for d in self.mirror_dirs if os.path.realpath(self.root / d) != out_real]
 

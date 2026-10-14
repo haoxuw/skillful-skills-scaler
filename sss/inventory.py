@@ -62,7 +62,6 @@ def scan(m: Manifest | None, root: Path) -> dict:
     # below already collapses. Only exclude a mirror when it holds real copies
     # (link_mode: copy) and is not the output dir itself under another name.
     if m and m.link_mode == "copy":
-        out_real = os.path.realpath(root / m.skills_dir)
         exclude += m.real_mirror_dirs()
     managed_status = {s["skill"]: s for s in statusmod.check_all(m)} if m else {}
     available: dict[str, list[str]] = {}
