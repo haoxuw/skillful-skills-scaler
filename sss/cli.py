@@ -251,7 +251,7 @@ def _matrix_paths(args):
 def cmd_matrix_pending(args) -> int:
     root, m, mp = _matrix_paths(args)
     inv = inventory.scan(m, root)
-    data = matrixmod.load(mp)
+    data = matrixmod.load(mp, inv)
     res = matrixmod.pending(inv, data)
     res["stars"] = matrixmod.STARS
     res["identical"] = inv["identical"]
@@ -280,7 +280,7 @@ def cmd_matrix_apply(args) -> int:
 def cmd_matrix_prune(args) -> int:
     root, m, mp = _matrix_paths(args)
     inv = inventory.scan(m, root)
-    data = matrixmod.load(mp)
+    data = matrixmod.load(mp, inv)
     res = matrixmod.prune(inv, data)
     matrixmod.save(mp, data)
     print(json.dumps(res))
@@ -290,7 +290,7 @@ def cmd_matrix_prune(args) -> int:
 def cmd_matrix_show(args) -> int:
     root, m, mp = _matrix_paths(args)
     inv = inventory.scan(m, root)
-    print(matrixmod.render_table(inv, matrixmod.load(mp)))
+    print(matrixmod.render_table(inv, matrixmod.load(mp, inv)))
     return 0
 
 
@@ -304,7 +304,7 @@ def cmd_report(args) -> int:
     inv = inventory.scan(m, root) if mp.exists() else None
     remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=str(root), capture_output=True, text=True).stdout.strip()
     repo_name = remote.rsplit("/", 1)[-1].removesuffix(".git") if remote else root.name
-    warnings = report.render_file(json_path, out, matrix=(inv, matrixmod.load(mp)) if inv else None, repo=repo_name)
+    warnings = report.render_file(json_path, out, matrix=(inv, matrixmod.load(mp, inv)) if inv else None, repo=repo_name)
     print(f"wrote {out}")
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)

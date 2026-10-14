@@ -49,22 +49,27 @@ def empty() -> dict:
     return {"schema_version": 2, "skills": {}, "pairs": {}}
 
 
-def _migrate_v1(data: dict) -> dict:
-    """v1 keyed skills by id and pairs by 'idA|idB' with scored_with hashes.
-    Re-key everything by content hash so nothing is lost to a rename."""
+def _migrate_v1(data: dict, inv: dict | None) -> dict:
+    """v1 keyed skills by id and pairs by 'idA|idB', with 12-hex body-only hashes.
+    Map those to today's content hashes through the live inventory (each skill
+    carries its legacy hash); records whose content is gone cannot be mapped and
+    are dropped."""
     out = empty()
+    if not inv:
+        return out
+    legacy_to_new = {s["legacy_sha"]: s["content_sha"] for s in inv["skills"] if s.get("legacy_sha")}
     for sid, rec in (data.get("skills") or {}).items():
-        sha = rec.get("body_sha")
-        if sha and rec.get("summary"):
-            out["skills"][sha] = {"summary": rec["summary"], "last_id": sid}
+        new = legacy_to_new.get(rec.get("body_sha"))
+        if new and rec.get("summary"):
+            out["skills"][new] = {"summary": rec["summary"], "last_id": sid}
     for k, rec in (data.get("pairs") or {}).items():
-        shas = rec.get("scored_with") or []
-        if len(shas) == 2 and rec.get("stars") is not None:
+        shas = [legacy_to_new.get(x) for x in (rec.get("scored_with") or [])]
+        if len(shas) == 2 and all(shas) and rec.get("stars") is not None:
             out["pairs"][key(*shas)] = {"stars": rec["stars"], "reason": rec.get("reason", ""), "last_ids": k.split("|", 1)}
     return out
 
 
-def load(path: Path) -> dict:
+def load(path: Path, inv: dict | None = None) -> dict:
     if not path.exists():
         return empty()
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -73,7 +78,7 @@ def load(path: Path) -> dict:
     except (TypeError, ValueError):
         version = 1
     if version < 2:
-        data = _migrate_v1(data)
+        data = _migrate_v1(data, inv)
     data.setdefault("skills", {})
     data.setdefault("pairs", {})
     return data
@@ -85,13 +90,13 @@ def save(path: Path, data: dict) -> None:
 
 
 def _pair_key(skills: dict, a: str, b: str) -> str:
-    return key(skills[a]["body_sha"], skills[b]["body_sha"])
+    return key(skills[a]["content_sha"], skills[b]["content_sha"])
 
 
 def _by_hash(inv: dict) -> dict[str, list[str]]:
     groups: dict[str, list[str]] = {}
     for s in inv["skills"]:
-        groups.setdefault(s["body_sha"], []).append(s["id"])
+        groups.setdefault(s["content_sha"], []).append(s["id"])
     return {h: sorted(ids) for h, ids in groups.items()}
 
 
@@ -114,8 +119,9 @@ def pending(inv: dict, data: dict) -> dict:
         if not rec or rec.get("stars") is None:
             a, b = sorted((rep[ha], rep[hb]))
             need_score.append({"a": a, "b": b, "path_a": skills[a]["path"], "path_b": skills[b]["path"],
-                               "same_as_a": [i for i in groups[skills[a]["body_sha"]] if i != a],
-                               "same_as_b": [i for i in groups[skills[b]["body_sha"]] if i != b]})
+                               "same_as_a": [i for i in groups[skills[a]["content_sha"]] if i != a],
+                               "same_as_b": [i for i in groups[skills[b]["content_sha"]] if i != b]})
+    need_score.sort(key=lambda x: (x["a"], x["b"]))   # stable, id-ordered rows for fan-out
     total_pairs = len(skills) * (len(skills) - 1) // 2
     distinct = len(groups)
     distinct_pairs = distinct * (distinct - 1) // 2
@@ -134,13 +140,13 @@ def apply(inv: dict, data: dict, update: dict) -> dict:
     for sid, text in (update.get("summaries") or {}).items():
         if sid not in skills:
             errors.append(f"unknown skill in summaries: {sid}"); continue
-        data["skills"][skills[sid]["body_sha"]] = {"summary": " ".join(str(text).split()), "last_id": sid}
+        data["skills"][skills[sid]["content_sha"]] = {"summary": " ".join(str(text).split()), "last_id": sid}
     for sc in update.get("scores") or []:
         a, b = sc.get("a"), sc.get("b")
         if a not in skills or b not in skills:
             errors.append(f"unknown skill in score: {a} / {b}"); continue
         a, b = sorted((a, b))   # keys and hash order are always sorted
-        if skills[a]["body_sha"] == skills[b]["body_sha"]:
+        if skills[a]["content_sha"] == skills[b]["content_sha"]:
             errors.append(f"{a} vs {b}: byte-identical content is 0 stars automatically; do not score it"); continue
         try:
             stars = int(sc.get("stars"))
@@ -159,7 +165,7 @@ def apply(inv: dict, data: dict, update: dict) -> dict:
 
 def prune(inv: dict, data: dict) -> dict:
     """Drop records for content that no longer exists anywhere in the repo."""
-    live = {s["body_sha"] for s in inv["skills"]}
+    live = {s["content_sha"] for s in inv["skills"]}
     before = (len(data["skills"]), len(data["pairs"]))
     data["skills"] = {k: v for k, v in data["skills"].items() if k in live}
     data["pairs"] = {k: v for k, v in data["pairs"].items() if all(p in live for p in k.split("|", 1))}
@@ -172,8 +178,8 @@ def scored_pairs(inv: dict, data: dict) -> dict[str, dict]:
     skills = {s["id"]: s for s in inv["skills"]}
     out: dict[str, dict] = {}
     for a, b in combinations(sorted(skills), 2):
-        if skills[a]["body_sha"] == skills[b]["body_sha"]:
-            out[key(a, b)] = {"stars": 0, "reason": "Byte-for-byte identical content."}
+        if skills[a]["content_sha"] == skills[b]["content_sha"]:
+            out[key(a, b)] = {"stars": 0, "reason": "Identical content (every file the same; name and provenance ignored)."}
             continue
         rec = data["pairs"].get(_pair_key(skills, a, b))
         if rec and rec.get("stars") is not None:
@@ -218,7 +224,7 @@ def render_table(inv: dict, data: dict) -> str:
         L.append(f"| **{short[a]}** {a} | " + " | ".join(cells) + " |")
     L += ["", "Coverage summaries:", ""]
     for sid in ids:
-        rec = data["skills"].get(skills[sid]["body_sha"]) or {}
+        rec = data["skills"].get(skills[sid]["content_sha"]) or {}
         L.append(f"- **{short[sid]} {sid}**: {rec.get('summary') or '(no summary yet)'}")
     low = duplicates(inv, data, scored) + overlaps(inv, data, scored)
     if low:

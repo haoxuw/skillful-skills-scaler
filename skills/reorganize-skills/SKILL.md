@@ -36,8 +36,9 @@ the same steps in sequence. The results must be identical either way.
    Every skill (excluding replicas and mirrors) with its source, SSS status,
    size, last change date, references, `broken_references`,
    `missing_dependencies` (skills it names that are not here but are available
-   from a source), and `identical` (groups whose bodies are byte for byte the
-   same). SSS does not guess similarity from text. That is your job, next.
+   from a source), and `identical` (groups whose content is the same: every file
+   byte for byte, ignoring only the skill's own name and SSS provenance). SSS
+   does not guess similarity from text. That is your job, next.
 
 2. **Earlier decisions.** Read `.sss/decisions.yaml`. A finding whose ID has a
    recorded decision is settled: apply the decision, do not ask again.
@@ -71,9 +72,12 @@ the same steps in sequence. The results must be identical either way.
    python3 .sss/tool/sss.py matrix apply scores.json
    ```
    where `scores.json` is `{"summaries": {"<id>": "..."}, "scores": [{"a": "<id>", "b": "<id>", "stars": 0-5, "reason": "..."}]}`.
-   Repeat `matrix pending` until `scores_still_needed` is 0. The number of
-   pairs grows with the square of the skill count; the cache means each pair is
-   paid for once.
+   Repeat `matrix pending` until `scores_still_needed` is 0. Work is per
+   distinct content: a `same_as` list on an entry names other skills with the
+   same content, which share the summary and the score. The number of pairs
+   grows with the square of the skill count; the cache means each pair is paid
+   for once. When everything is scored, run `python3 .sss/tool/sss.py matrix prune`
+   once to drop cached records for content that no longer exists in the repo.
 
 5. **Turn the matrix into findings.**
    - Every pair at 0 or 1 star, and every `identical` group, is a `duplicate`.
