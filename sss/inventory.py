@@ -75,7 +75,7 @@ def scan(m: Manifest | None, root: Path) -> dict:
         meta, body = frontmatter.read(d / "SKILL.md")
         files = [p for p in d.rglob("*") if p.is_file()]
         words = sum(len(p.read_text(encoding="utf-8", errors="replace").split()) for p in files if p.suffix.lower() in (".md", ".txt"))
-        prov = (meta.get("metadata") or {}).get("sss") if isinstance(meta.get("metadata"), dict) else None
+        prov = frontmatter.provenance(meta) or None
         refs, broken = _references(d, body, files)
         rel = os.path.relpath(d, root)
         name = str(meta.get("name") or d.name)

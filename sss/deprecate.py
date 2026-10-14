@@ -29,7 +29,7 @@ def _generated_by_sss(path: Path) -> bool:
     if not md.is_file():
         return False
     meta, _ = frontmatter.read(md)
-    return isinstance(meta.get("metadata"), dict) and "sss" in meta["metadata"]
+    return bool(frontmatter.provenance(meta))
 
 
 def run(m: Manifest, name: str, keep_patches: bool = False) -> dict:
@@ -37,8 +37,12 @@ def run(m: Manifest, name: str, keep_patches: bool = False) -> dict:
     entry is already gone is also removed (its SKILL.md carries SSS provenance).
     A skill with no provenance is the repo's own; SSS never deletes those."""
     if not m.has_skill(name):
-        places = [d for d in [m.skills_dir, *m.real_mirror_dirs()] if (m.root / d / name).exists()]
-        if places and _generated_by_sss(m.root / places[0] / name):
+        dirs = [m.skills_dir, *m.real_mirror_dirs()]
+        places = [d for d in dirs if os.path.lexists(m.root / d / name)]
+        dangling = [d for d in places if (m.root / d / name).is_symlink() and not (m.root / d / name).exists()]
+        generated = [d for d in places if (m.root / d / name).exists() and _generated_by_sss(m.root / d / name)]
+        if places and (generated or len(dangling) == len(places)):
+            # Orphaned SSS output (manifest entry removed by hand) or links left behind.
             removed = links.unlink_skill(m, name)
             return {"skill": name, "removed": removed, "note": "orphaned SSS output removed; it had no manifest entry",
                     "references": find_references(m.root, name, m)}

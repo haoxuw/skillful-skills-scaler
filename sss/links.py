@@ -28,9 +28,21 @@ HERE = Path(__file__).resolve().parent.parent
 OWN_SKILLS = HERE / "skills"
 
 
+def _usable_dir(root: Path, rel: str) -> str | None:
+    """None if rel can be created or already is a directory; otherwise why not.
+    Walks the ancestor chain so a dangling link anywhere above is caught."""
+    p = root / rel
+    for anc in [p, *p.parents]:
+        if anc == root:
+            break
+        if anc.is_symlink() and not anc.exists():
+            return f"{anc.relative_to(root)} is a dangling symlink"
+        if anc.exists() and not anc.is_dir():
+            return f"{anc.relative_to(root)} is a file"
+    return None
+
+
 def _link(target: Path, link: Path, copy: bool) -> str:
-    if link.parent.is_symlink() and not link.parent.exists():
-        return f"skipped: {link.parent} is a dangling symlink"
     link.parent.mkdir(parents=True, exist_ok=True)
     if link.is_symlink() or link.exists():
         if link.is_symlink():
@@ -61,12 +73,20 @@ def sync_links(m: Manifest, copy: bool | None = None) -> list[dict]:
     results = []
     out = m.root / m.skills_dir
     out.mkdir(parents=True, exist_ok=True)
-    mirrors = m.real_mirror_dirs()
+    mirrors = []
+    for d in m.real_mirror_dirs():
+        why = _usable_dir(m.root, d)
+        if why:
+            results.append({"skill": "*", "into": d, "result": f"skipped mirror: {why}"})
+        else:
+            mirrors.append(d)
     # Prune links whose target vanished, so an upgrade or a removal never leaves a
     # broken skill behind. A link into skills_dir is always ours to prune. A link
     # into SSS's own skills folder is pruned only when that folder is present: a
     # missing submodule checkout must not look like a renamed command skill.
     own_present = OWN_SKILLS.is_dir()
+    out_real = os.path.realpath(out) + os.sep
+    own_real = str(OWN_SKILLS.resolve()) + os.sep
     for d in [m.skills_dir, *mirrors]:
         base = m.root / d
         if not base.is_dir():
@@ -75,15 +95,15 @@ def sync_links(m: Manifest, copy: bool | None = None) -> list[dict]:
             if entry.is_symlink() and not entry.exists():
                 raw = os.readlink(entry).replace(os.sep, "/")
                 target = os.path.realpath(os.path.join(entry.parent, raw))
-                into_out = target.startswith(os.path.realpath(out) + os.sep)
-                into_own = own_present and (target.startswith(str(OWN_SKILLS.resolve()) + os.sep)
+                into_out = target.startswith(out_real)
+                into_own = own_present and (target.startswith(own_real)
                                             or "/.sss/tool/skills/" in raw + "/" or raw.startswith(".sss/tool/skills/"))
                 if into_out or into_own:
                     entry.unlink()
                     results.append({"skill": entry.name, "into": d, "result": "pruned dangling link"})
     # SSS's own command skills go into skills_dir as links.
     own = []
-    if OWN_SKILLS.is_dir():
+    if own_present:
         for d in sorted(OWN_SKILLS.iterdir()):
             if (d / "SKILL.md").is_file():
                 own.append(d.name)

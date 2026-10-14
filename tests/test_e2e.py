@@ -394,8 +394,21 @@ def test_prune_without_own_skills_and_orphan_deprecate(source: Path, target: Pat
     rc, res = run(target, "deprecate", "omelette")
     assert rc == 0 and "orphaned" in res["note"]
     assert not (target / ".agents" / "skills" / "omelette").exists() and not (target / ".claude" / "skills" / "omelette").exists()
+    rc, res = run(target, "deprecate", "omelette-renamed")
+    assert rc == 0 and "omelette-renamed" not in (target / ".sss" / "manifest.yaml").read_text()
+    # SSS's own command skills are never treated as orphaned output
+    rc, res = run(target, "deprecate", "sync-skills")
+    assert rc == 2 and (target / ".agents" / "skills" / "sync-skills" / "SKILL.md").is_file()
+    # a dangling link left behind by hand is cleaned up
+    os.symlink("../../.agents/skills/ghost", target / ".claude" / "skills" / "ghost")
+    rc, res = run(target, "deprecate", "ghost")
+    assert rc == 0 and not (target / ".claude" / "skills" / "ghost").is_symlink()
+    # a dangling ancestor of a mirror is skipped, not a crash
+    import shutil as _sh; _sh.rmtree(target / ".claude"); os.symlink("nowhere", target / ".claude")
+    rc, res = run(target, "links")
+    assert rc == 0 and any("skipped mirror" in r["result"] for r in res)
+    os.unlink(target / ".claude")
     # generated front matter uses the same indented YAML style
-    assert run(target, "deprecate", "omelette-renamed")[0] in (0, 2)
     assert run(target, "generate", "salad")[0] == 0
     text = (target / ".agents" / "skills" / "salad" / "SKILL.md").read_text()
     assert "metadata:\n  sss:\n    source: cookbook" in text   # indented, prettier-style front matter
