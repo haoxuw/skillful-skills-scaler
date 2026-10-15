@@ -270,7 +270,12 @@ Field rules:
   and is empty for other types.
 - `findings[].proposed_action.verb` is one of `move`, `merge`, `remove`,
   `patch`, `rename`, `fix_link`, `update`, `import`, `none`. `from`, `into`
-  and `detail` are optional.
+  and `detail` are optional. When `from` is omitted, a `patch`, `update`,
+  `fix_link` or `import` applies to all of the finding's `skills`. A `remove`,
+  `move`, `rename` or `merge` on a finding with two or more skills must name
+  `from`; otherwise the renderer marks the target unresolved, forces a
+  decision, and does not group it with any other action. The renderer writes
+  the resolved `from` back into the JSON.
 - Every finding has at least one `evidence` entry. A finding without
   evidence is a bug in the tool, not a finding.
 - `summary` is computed by the renderer and overwritten on every render.

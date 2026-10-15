@@ -516,4 +516,25 @@ def test_report_render(tmp_path: Path):
     assert any("a: adds 'Nothing' but no low_value" in x for x in w) and any("c: no 'adds' line" in x for x in w) and any("c: no goal" in x for x in w)
     back["findings"].append({"type": "low_value", "skills": ["b"], "evidence": [{"skill": "b", "quote": "x"}], "proposed_action": {"verb": "remove"}})
     assert any("b: low_value with a remove action" in x for x in warnings_for(back))
+    # actions without a named target are grouped by the finding's own skills, never all together
+    from sss.report import normalize, render as report_render
+    many = {"inventory": [], "findings": [{"type": "out_of_date", "skills": [f"s{i}"], "evidence": [{"quote": "q"}], "confidence": "unsure",
+                                           "proposed_action": {"verb": "patch"}} for i in range(5)]}
+    assert normalize(many)["summary"]["decisions_needed"] == 5
+    md2 = report_render(many)
+    assert md2.count("- Patch s") == 5 and "- Patch s3 [old-" in md2
+    # explicit from in any order and the skills fallback are one action; a destructive
+    # action on a two-skill finding without from is unresolved, never "Remove a, b"
+    mix = {"inventory": [], "findings": [
+        {"type": "out_of_date", "skills": ["a"], "evidence": [{"quote": "q"}], "confidence": "confident", "proposed_action": {"verb": "patch", "from": ["b", "a"]}},
+        {"type": "out_of_date", "skills": ["a", "b"], "evidence": [{"quote": "q"}], "confidence": "confident", "proposed_action": {"verb": "patch"}},
+        {"type": "duplicate", "skills": ["a", "b"], "evidence": [{"quote": "q"}], "confidence": "confident", "proposed_action": {"verb": "remove"}},
+        {"type": "out_of_date", "skills": [], "subject": "x", "evidence": [{"quote": "q"}], "confidence": "confident", "proposed_action": {"verb": "patch"}},
+        {"type": "out_of_date", "skills": [], "subject": "y", "evidence": [{"quote": "q"}], "confidence": "confident", "proposed_action": {"verb": "patch"}},
+    ]}
+    n = normalize(mix)
+    assert n["summary"]["actions_proposed"] == 4            # patch a,b (grouped); unresolved remove; two empty-skill patches apart
+    assert n["findings"][2]["proposed_action"]["target_unresolved"] and n["findings"][2]["decision_needed"]
+    md3 = report_render(mix)
+    assert "Remove a, b" not in md3 and "Remove one of a, b (which one is not named; decide)" in md3
     assert "### a" in md and "duplicate with b [dup-" in md and "- **Concerns:** none" not in md.split("### a")[1].split("### b")[0]
