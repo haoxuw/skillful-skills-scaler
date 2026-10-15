@@ -104,13 +104,30 @@ def _by(data: dict, types) -> list[dict]:
     return [f for f in data["findings"] if f.get("type") in types]
 
 
+def _text(v) -> str:
+    return " ".join(str(v).split()) if v is not None else ""
+
+
 def warnings_for(data: dict) -> list[str]:
     out = []
+    low = {}
+    for f in data.get("findings", []):
+        if f.get("type") == "low_value":
+            for sid in f.get("skills", []):
+                low[sid] = (f.get("proposed_action") or {}).get("verb", "none")
     for i in data.get("inventory", []):
-        if not i.get("goal"):
-            out.append(f"{i.get('id')}: no goal written; using its description")
-        elif i.get("goal", "").strip() == i.get("description", "").strip():
-            out.append(f"{i.get('id')}: goal is the description copied verbatim")
+        sid = i.get("id")
+        if not _text(i.get("goal")):
+            out.append(f"{sid}: no goal written; using its description")
+        elif _text(i.get("goal")) == _text(i.get("description")):
+            out.append(f"{sid}: goal is the description copied verbatim")
+        adds = _text(i.get("adds"))
+        if not adds:
+            out.append(f"{sid}: no 'adds' line; say what it adds beyond what the model does unprompted, or 'Nothing'")
+        elif adds.lower().rstrip(".") == "nothing" and sid not in low:
+            out.append(f"{sid}: adds 'Nothing' but no low_value finding was filed")
+        elif adds.lower().rstrip(".") != "nothing" and low.get(sid) == "remove":
+            out.append(f"{sid}: low_value with a remove action, yet 'adds' names a preference; use patch or drop the finding")
     for f in data.get("findings", []):
         if not f.get("evidence"):
             out.append(f"{f.get('id')}: finding has no evidence")
@@ -223,8 +240,9 @@ def _appendix_entry(i: dict, findings: list[dict]) -> list[str]:
     sid = i.get("id", "")
     L = [f"### {sid}", ""]
     L.append(f"- **Source:** {i.get('source', 'local')}  **Status:** {i.get('status', '')}  **Location:** `{i.get('path', '')}`")
-    goal = i.get("goal") or _one_line(i.get("description", "")) or "No description given."
+    goal = _one_line(i.get("goal") or "") or _one_line(i.get("description", "")) or "No description given."
     L.append(f"- **Goal:** {goal}")
+    L.append(f"- **Adds beyond the model:** {_one_line(i.get('adds') or '') or '(not assessed)'}")
     mine = [f for f in findings if sid in f.get("skills", [])]
     if not mine:
         L.append("- **Concerns:** none")

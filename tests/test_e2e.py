@@ -459,8 +459,9 @@ def test_prune_without_own_skills_and_orphan_deprecate(source: Path, target: Pat
 
 def test_report_render(tmp_path: Path):
     data = {
-        "inventory": [{"id": "a", "source": "local", "path": "x/a", "files": 1, "words": 10},
-                      {"id": "b", "source": "cookbook", "path": "x/b", "files": 1, "words": 12}],
+        "inventory": [{"id": "a", "source": "local", "path": "x/a", "files": 1, "words": 10, "goal": "Salad.", "adds": "Nothing"},
+                      {"id": "b", "source": "cookbook", "path": "x/b", "files": 1, "words": 12, "goal": "Salad with nuts.", "adds": "The house rule\nto add nuts."},
+                      {"id": "c", "source": "local", "path": "x/c", "files": 1, "words": 3, "description": "Toast."}],
         "findings": [
             {"type": "duplicate", "skills": ["a", "b"], "why_it_matters": "Both explain the same thing.",
              "evidence": [{"skill": "a", "file": "SKILL.md", "line": 3, "quote": "wash lettuce"}],
@@ -487,4 +488,11 @@ def test_report_render(tmp_path: Path):
     assert "Open an issue upstream" in md and "Waiting on your decision" in md
     assert "Nothing found." in md                              # empty sections still appear
     assert "## Appendix: every skill we found" in md
+    assert "- **Adds beyond the model:** The house rule to add nuts." in md and "- **Adds beyond the model:** Nothing" in md
+    assert "- **Adds beyond the model:** (not assessed)" in md and "- **Goal:** Toast." in md
+    from sss.report import warnings_for
+    w = warnings_for(back)
+    assert any("a: adds 'Nothing' but no low_value" in x for x in w) and any("c: no 'adds' line" in x for x in w) and any("c: no goal" in x for x in w)
+    back["findings"].append({"type": "low_value", "skills": ["b"], "evidence": [{"skill": "b", "quote": "x"}], "proposed_action": {"verb": "remove"}})
+    assert any("b: low_value with a remove action" in x for x in warnings_for(back))
     assert "### a" in md and "duplicate with b [dup-" in md and "- **Concerns:** none" not in md.split("### a")[1].split("### b")[0]

@@ -92,7 +92,7 @@ summary says that this pass ran and how many findings it changed.
 | `missing_dependency` | 4 | the inventory: a skill names another skill that is not here but is available from a source | `import` |
 | `broken_reference` | 4 | the inventory: a link to a file that does not exist | `fix_link` |
 | `out_of_place` | 5 | the model: the skill is unrelated to this repo, or is in the wrong folder | `move` or `remove` |
-| `low_value` | 5 | the model: the skill does not help an agent do anything, for example it is vague, trivially short, or only links elsewhere | `remove` or `patch` |
+| `low_value` | 5 | the model: the skill's `adds` is "Nothing" (it repeats general knowledge of a tool or product, or is vague, trivially short, or only links elsewhere), action `remove`; or its preference is buried in general text, action `patch` to cut the skill down to that preference |
 | `invalid_frontmatter` | 5 | the inventory: the SKILL.md front matter is not valid YAML, so a runtime may skip the skill | `patch` |
 
 ## Markdown report structure
@@ -150,6 +150,21 @@ One subsection per finding. Each quotes the skill, says why it does not help
 or does not belong here, and recommends moving or removing it. Removal
 always needs a decision.
 
+"Unuseful" has one definition. The model already knows how most tools and
+products work. A skill is useful when it records what the model cannot know:
+the team's preferred behaviour, a business workflow, a methodology, a house
+rule, a chosen default. A skill is unuseful when nothing of that kind remains
+after every sentence a capable model would follow unprompted is removed; its
+finding is `low_value` with a `remove` action. A skill that mixes both is also
+filed as `low_value`, with a `patch` action to cut the general part and the
+confidence word `likely`. Skills whose front matter does not parse appear in
+this section too, as `invalid_frontmatter`, because a runtime may skip them.
+
+The renderer checks the two against each other: a skill whose `adds` is
+"Nothing" without a `low_value` finding, or a `low_value` finding with a
+`remove` action on a skill whose `adds` names a preference, produces a
+warning.
+
 ### 7. What we looked at
 
 The inventory. One row per skill: name, source, status, location, number of
@@ -178,6 +193,10 @@ One entry per skill discovered, in inventory order. Each entry has:
 - **Goal.** What the skill is for, in one plain line. The agent writes this
   as `goal` on the inventory entry; if it is missing, the skill's own
   description is used, cut to one line.
+- **Adds beyond the model.** What the skill makes the agent do that a capable
+  model would not do unprompted: the preference, workflow, methodology or
+  rule it carries. The agent writes this as `adds` on the inventory entry.
+  "Nothing" here is what makes a `low_value` finding.
 - **Concerns.** Every finding in sections 2 to 6 that involves this skill,
   one per line, with the type, the other skills involved, the finding ID,
   the recommendation, and whether a decision is needed. A skill with no
@@ -208,6 +227,7 @@ its reason. Pairs at 3 stars or more appear only here.
       "status": "ok",
       "path": ".agents/skills/gke-observability",
       "goal": "Set up and troubleshoot logging, monitoring and Managed Prometheus on GKE.",
+      "adds": "The team's golden-path monitoring component list and the rule to always name the cost of enabling it.",
       "files": 1,
       "words": 1923,
       "last_changed": "2026-10-08"
@@ -258,6 +278,9 @@ Field rules:
   kept, so rendering the same JSON twice gives the same markdown.
 - `inventory[].goal` is optional and written by the agent. Keep it to one
   sentence a newcomer would understand.
+- `inventory[].adds` is written by the agent: one sentence naming what the
+  skill adds beyond what the model does unprompted, or the word "Nothing".
+  The renderer warns when it is missing.
 - When two skills share a name, their `id` is `name (path)` so findings can
   tell them apart.
 
