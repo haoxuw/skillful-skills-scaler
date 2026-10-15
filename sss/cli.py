@@ -260,6 +260,8 @@ def cmd_matrix_pending(args) -> int:
     res = matrixmod.pending(inv, data)
     res["stars"] = matrixmod.STARS
     res["identical"] = inv["identical"]
+    if data.get("migrated"):
+        res["migrated"] = data["migrated"]
     print(json.dumps(res, indent=2, ensure_ascii=False))
     return 0
 
@@ -267,7 +269,7 @@ def cmd_matrix_pending(args) -> int:
 def cmd_matrix_apply(args) -> int:
     root, m, mp = _matrix_paths(args)
     inv = inventory.scan(m, root)
-    data = matrixmod.load(mp)
+    data = matrixmod.load(mp, inv)
     if args.file == "-":
         update = json.load(sys.stdin)
     else:

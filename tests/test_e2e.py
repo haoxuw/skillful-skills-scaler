@@ -315,12 +315,27 @@ def test_matrix(source: Path, target: Path):
                                "pairs": {"green-salad|omelette": {"stars": 3, "reason": "", "scored_with": sorted([legacy["green-salad"], legacy["omelette"]])}}}))
     rc, pend = run(target, "matrix", "pending")
     assert rc == 0 and pend["scores_needed"] == [] and pend["summaries_needed"] == [], pend
-    # a v2 file (12-hex body-hash keys) migrates the same way
+    # a v2 file with 12-hex body-hash keys migrates the same way, and is written back as v3
     mp.write_text(json.dumps({"schema_version": 2,
                                "skills": {legacy["green-salad"]: {"summary": "s", "last_id": "green-salad"}, legacy["omelette"]: {"summary": "o", "last_id": "omelette"}},
                                "pairs": {"|".join(sorted([legacy["green-salad"], legacy["omelette"]])): {"stars": 3, "reason": "", "last_ids": ["green-salad", "omelette"]}}}))
     rc, pend = run(target, "matrix", "pending")
     assert rc == 0 and pend["scores_needed"] == [] and pend["summaries_needed"] == [], pend
+    assert json.loads(mp.read_text())["schema_version"] == 3 and pend["migrated"]["from_version"] == 2
+    # a v2 file with 64-hex content keys (what main wrote) is kept as is
+    content = {x["id"]: x["content_sha"] for x in inv["skills"]}
+    mp.write_text(json.dumps({"schema_version": 2,
+                               "skills": {content["green-salad"]: {"summary": "s"}, content["omelette"]: {"summary": "o"}},
+                               "pairs": {"|".join(sorted([content["green-salad"], content["omelette"]])): {"stars": 3, "reason": ""}}}))
+    rc, pend = run(target, "matrix", "pending")
+    assert rc == 0 and pend["scores_needed"] == [] and pend["summaries_needed"] == [], pend
+    # an apply on an old file must not wipe it
+    mp.write_text(json.dumps({"schema_version": 2,
+                               "skills": {legacy["green-salad"]: {"summary": "s"}, legacy["omelette"]: {"summary": "o"}},
+                               "pairs": {"|".join(sorted([legacy["green-salad"], legacy["omelette"]])): {"stars": 3, "reason": ""}}}))
+    assert run(target, "matrix", "apply", "empty.json")[0] == 0
+    saved = json.loads(mp.read_text())
+    assert saved["schema_version"] == 3 and len(saved["skills"]) == 2 and len(saved["pairs"]) == 1
     # front matter with YAML 1.1 keys (`on:`) and junk files do not disturb the identity
     sk = target / ".agents" / "skills" / "omelette"
     before = next(x["content_sha"] for x in inv["skills"] if x["id"] == "omelette")

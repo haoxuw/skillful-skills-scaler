@@ -45,52 +45,81 @@ def key(a: str, b: str) -> str:
     return f"{a}|{b}"
 
 
-SCHEMA = 3   # 1: name keys, 12-hex body hashes; 2: 12-hex body-hash keys; 3: full folder-content hashes
+SCHEMA = 3
+# Key history: v1 keyed skills by id and pairs by "idA|idB", carrying 12-hex body hashes
+# in body_sha / scored_with. v2 keyed by hash, but two shapes shipped under that
+# number: 12-hex body hashes, then 64-hex folder-content hashes. v3 is 64-hex only.
+# Migration therefore goes by key shape, never by the version number alone.
 
 
 def empty() -> dict:
     return {"schema_version": SCHEMA, "skills": {}, "pairs": {}}
 
 
-def _migrate_v1(data: dict, inv: dict | None) -> dict:
-    """v1 keyed skills by id and pairs by 'idA|idB', with 12-hex body-only hashes.
-    Map those to today's content hashes through the live inventory (each skill
-    carries its legacy hash); records whose content is gone cannot be mapped and
-    are dropped."""
+def _legacy_map(inv: dict) -> tuple[dict[str, list[str]], set[str]]:
+    """12-hex body hash -> every live content hash with that body (two skills can
+    share a body and differ in supporting files), plus the set of live hashes."""
+    legacy: dict[str, list[str]] = {}
+    live = set()
+    for s in inv["skills"]:
+        live.add(s["content_sha"])
+        if s.get("legacy_sha"):
+            legacy.setdefault(s["legacy_sha"], [])
+            if s["content_sha"] not in legacy[s["legacy_sha"]]:
+                legacy[s["legacy_sha"]].append(s["content_sha"])
+    return legacy, live
+
+
+def _targets(h: str, legacy: dict[str, list[str]], live: set[str]) -> list[str]:
+    """Live content hashes an old key stands for. A 64-hex key maps to itself when
+    still live; a 12-hex key fans out to every live skill with that body."""
+    if len(h) == 64:
+        return [h] if h in live else []
+    return legacy.get(h, [])
+
+
+def _migrate(data: dict, inv: dict | None) -> tuple[dict, dict]:
+    """Re-key a v1 or v2 file to v3. Returns (new_data, {"summaries_dropped", "pairs_dropped"})."""
     out = empty()
+    skills_in = data.get("skills") or {}
+    pairs_in = data.get("pairs") or {}
+    dropped = {"summaries_dropped": 0, "pairs_dropped": 0}
     if not inv:
-        return out
-    legacy_to_new = {s["legacy_sha"]: s["content_sha"] for s in inv["skills"] if s.get("legacy_sha")}
-    for sid, rec in (data.get("skills") or {}).items():
-        new = legacy_to_new.get(rec.get("body_sha"))
-        if new and rec.get("summary"):
-            out["skills"][new] = {"summary": rec["summary"], "last_id": sid}
-    for k, rec in (data.get("pairs") or {}).items():
-        shas = [legacy_to_new.get(x) for x in (rec.get("scored_with") or [])]
-        if len(shas) == 2 and all(shas) and rec.get("stars") is not None:
-            out["pairs"][key(*shas)] = {"stars": rec["stars"], "reason": rec.get("reason", ""), "last_ids": k.split("|", 1)}
-    return out
+        dropped["summaries_dropped"] = len(skills_in)
+        dropped["pairs_dropped"] = len(pairs_in)
+        return out, dropped
+    legacy, live = _legacy_map(inv)
+    from itertools import product
+    for k, rec in skills_in.items():
+        h = rec.get("body_sha") or k          # v1 records carry the hash in body_sha; v2 keys are the hash
+        hit = False
+        for new in _targets(h, legacy, live):
+            if rec.get("summary"):
+                out["skills"][new] = {"summary": rec["summary"], "last_id": rec.get("last_id", k if "|" not in k else "")}
+                hit = True
+        if not hit:
+            dropped["summaries_dropped"] += 1
+    for k, rec in pairs_in.items():
+        shas = rec.get("scored_with") or k.split("|", 1)   # v1 pairs carry hashes in scored_with
+        if len(shas) != 2 or rec.get("stars") is None:
+            dropped["pairs_dropped"] += 1
+            continue
+        ta, tb = _targets(shas[0], legacy, live), _targets(shas[1], legacy, live)
+        hit = False
+        for a, b in product(ta, tb):
+            if a != b:
+                out["pairs"][key(a, b)] = {"stars": rec["stars"], "reason": rec.get("reason", ""),
+                                           "last_ids": rec.get("last_ids") or (k.split("|", 1) if "|" in k else [])}
+                hit = True
+        if not hit:
+            dropped["pairs_dropped"] += 1
+    return out, dropped
 
 
-def _migrate_v2(data: dict, inv: dict | None) -> dict:
-    """v2 keyed by the 12-hex body hash. Map to today's folder-content hashes
-    through the live inventory's legacy hashes; unmatched records are dropped."""
-    out = empty()
-    if not inv:
-        return out
-    legacy_to_new = {s["legacy_sha"]: s["content_sha"] for s in inv["skills"] if s.get("legacy_sha")}
-    for h, rec in (data.get("skills") or {}).items():
-        new = legacy_to_new.get(h)
-        if new and rec.get("summary"):
-            out["skills"][new] = {"summary": rec["summary"], "last_id": rec.get("last_id", "")}
-    for k, rec in (data.get("pairs") or {}).items():
-        shas = [legacy_to_new.get(x) for x in k.split("|", 1)]
-        if len(shas) == 2 and all(shas) and rec.get("stars") is not None:
-            out["pairs"][key(*shas)] = {"stars": rec["stars"], "reason": rec.get("reason", ""), "last_ids": rec.get("last_ids", [])}
-    return out
-
-
-def load(path: Path, inv: dict | None = None) -> dict:
+def load(path: Path, inv: dict | None = None, persist: bool = True) -> dict:
+    """Read the cache, migrating older files by key shape. A migrated file is
+    written back (when persist is true and an inventory was available) so the
+    upgrade happens once; the drop counts are stored under `migrated`."""
     if not path.exists():
         return empty()
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -98,10 +127,11 @@ def load(path: Path, inv: dict | None = None) -> dict:
         version = int(data.get("schema_version") or 1)
     except (TypeError, ValueError):
         version = 1
-    if version < 2:
-        data = _migrate_v1(data, inv)
-    elif version < 3:
-        data = _migrate_v2(data, inv)
+    if version < SCHEMA:
+        data, dropped = _migrate(data, inv)
+        data["migrated"] = {"from_version": version, **dropped}
+        if persist and inv:
+            save(path, data)
     data.setdefault("schema_version", SCHEMA)
     data.setdefault("skills", {})
     data.setdefault("pairs", {})
