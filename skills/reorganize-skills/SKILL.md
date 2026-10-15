@@ -102,15 +102,25 @@ the same steps in sequence. The results must be identical either way.
      front matter does not parse) with a `patch` action, quoting the error.
 
 7. **Judge every skill on its own.** Fan out one worker per skill. Each writes
-   the skill's one-line `goal` for the inventory, in words a newcomer would
-   understand, and checks:
+   two lines for the inventory entry, in words a newcomer would understand:
+   `goal`, what the skill is for; and `adds`, what the skill makes the agent do
+   that a capable model would not do unprompted. To find `adds`, read the skill
+   and strike every sentence that only restates how a tool or product works.
+   What survives is the team's preference, workflow, methodology, house rule or
+   chosen default. Write that in one sentence, or write "Nothing".
+
+   Then check:
    - `out_of_date` by content: it describes a flag, API, version or product that
      has since changed. Quote the line and say what is true now. Only file this
      when you are sure.
    - `out_of_place`: it has nothing to do with what this repo does, or sits in
      the wrong folder. Quote its description and say why it does not fit.
-   - `low_value`: it would not help an agent do anything: vague, trivially short,
-     or only a list of links. Quote what little it says.
+   - `low_value`: `adds` is "Nothing". The skill repeats what the model already
+     knows, or is vague, trivially short, or only a list of links. Quote a
+     passage that a model would produce unprompted, and say so. If the skill
+     carries some preference buried in general text, it is not `low_value`:
+     recommend a `patch` that cuts the general part, and quote one sentence of
+     each kind.
 
 8. **Second opinion.** Before rendering, hand the complete findings JSON to one
    worker with no other context and this brief: "You are a sceptical reviewer.
@@ -133,7 +143,7 @@ the same steps in sequence. The results must be identical either way.
    appendix with every skill, its goal and its concerns, then the full coverage
    matrix. The renderer fills IDs, forces `decision_needed` for conflicts, for
    `unsure` findings and for any `remove` action, and prints a warning for every
-   skill without a goal. Fix warnings before you continue.
+   skill without a `goal` or an `adds` line. Fix warnings before you continue.
 
 10. **Apply only the safe actions**, meaning findings with `decision_needed: false`:
     - A reconcile is a new patch: `python3 .sss/tool/sss.py patch new <skill> --intent "..."`,

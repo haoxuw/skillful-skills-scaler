@@ -111,6 +111,8 @@ def warnings_for(data: dict) -> list[str]:
             out.append(f"{i.get('id')}: no goal written; using its description")
         elif i.get("goal", "").strip() == i.get("description", "").strip():
             out.append(f"{i.get('id')}: goal is the description copied verbatim")
+        if not i.get("adds"):
+            out.append(f"{i.get('id')}: no 'adds' line; say what it adds beyond what the model does unprompted, or 'Nothing'")
     for f in data.get("findings", []):
         if not f.get("evidence"):
             out.append(f"{f.get('id')}: finding has no evidence")
@@ -225,6 +227,7 @@ def _appendix_entry(i: dict, findings: list[dict]) -> list[str]:
     L.append(f"- **Source:** {i.get('source', 'local')}  **Status:** {i.get('status', '')}  **Location:** `{i.get('path', '')}`")
     goal = i.get("goal") or _one_line(i.get("description", "")) or "No description given."
     L.append(f"- **Goal:** {goal}")
+    L.append(f"- **Adds beyond the model:** {i.get('adds') or '(not assessed)'}")
     mine = [f for f in findings if sid in f.get("skills", [])]
     if not mine:
         L.append("- **Concerns:** none")

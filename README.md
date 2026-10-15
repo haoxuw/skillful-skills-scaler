@@ -10,6 +10,14 @@ Smart agents need a large number of skills, which:
 - May be stored in different media: file system, packages, submodules.
 - May overlap with each other after being merged from multiple sources.
 
+## What makes a skill useful
+
+A skill is a set of instructions an agent loads before it works. The model behind the agent already knows how most tools and products work. A skill that repeats that knowledge adds nothing: the agent would do the same without it, and the text costs attention on every task.
+
+A useful skill records what the model cannot know on its own: how this team prefers the agent to behave. That is a business workflow, a preferred methodology, a house rule, a default the team has chosen, or an order of steps the team requires. The test for each skill is: remove every sentence a capable model would follow unprompted; what remains is the skill's value. If nothing remains, the skill is unuseful. If what remains is preference, policy or workflow, the skill is useful. Skills should be biased towards those preferences and standards, not towards general knowledge.
+
+The `reorganize` command applies this test to every skill. The report names, per skill, what it adds beyond what the model already does, and flags skills where that is nothing.
+
 ## Commands
 
 ### 1. Sync
