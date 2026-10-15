@@ -36,10 +36,11 @@ These skills point at files or other skills that are not here.
 
 ## 6. Unuseful or out of place
 
-These skills do not belong in this repo, or add nothing beyond what the model
-already does unprompted. A useful skill carries the team's preference,
-workflow, methodology or house rule; one that only repeats how a tool works is
-unuseful.
+These skills do not belong in this repo, add nothing beyond what the model
+already does unprompted, or cannot be loaded because their front matter does
+not parse. A useful skill carries the team's preference, workflow, methodology
+or house rule; one that only repeats how a tool works is unuseful, and one that
+buries a preference in general text should be cut down to it.
 
 {{out_of_place}}
 

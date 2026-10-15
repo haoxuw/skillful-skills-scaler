@@ -115,12 +115,12 @@ the same steps in sequence. The results must be identical either way.
      when you are sure.
    - `out_of_place`: it has nothing to do with what this repo does, or sits in
      the wrong folder. Quote its description and say why it does not fit.
-   - `low_value`: `adds` is "Nothing". The skill repeats what the model already
-     knows, or is vague, trivially short, or only a list of links. Quote a
-     passage that a model would produce unprompted, and say so. If the skill
-     carries some preference buried in general text, it is not `low_value`:
-     recommend a `patch` that cuts the general part, and quote one sentence of
-     each kind.
+   - `low_value`, two shapes. If `adds` is "Nothing", file `low_value` with a
+     `remove` action: quote a passage a model would produce unprompted and say
+     so. If the skill carries a preference buried in general text, file
+     `low_value` with a `patch` action and confidence `likely`: quote one
+     sentence of each kind and say what the cut-down skill would keep. The
+     renderer warns when `adds` and these findings disagree.
 
 8. **Second opinion.** Before rendering, hand the complete findings JSON to one
    worker with no other context and this brief: "You are a sceptical reviewer.
@@ -133,7 +133,7 @@ the same steps in sequence. The results must be identical either way.
 
 9. **Write and render.** Save the findings to
    `.sss/reports/reorganize-report.json` with the inventory entries from step 1
-   plus each skill's `goal`. Then:
+   plus each skill's `goal` and `adds` from step 7. Then:
    ```bash
    python3 .sss/tool/sss.py report
    ```

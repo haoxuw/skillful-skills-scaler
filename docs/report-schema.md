@@ -92,7 +92,7 @@ summary says that this pass ran and how many findings it changed.
 | `missing_dependency` | 4 | the inventory: a skill names another skill that is not here but is available from a source | `import` |
 | `broken_reference` | 4 | the inventory: a link to a file that does not exist | `fix_link` |
 | `out_of_place` | 5 | the model: the skill is unrelated to this repo, or is in the wrong folder | `move` or `remove` |
-| `low_value` | 5 | the model: the skill adds nothing beyond what a capable model does unprompted. It repeats general knowledge of a tool or product, with no team preference, workflow, methodology or house rule in it; or it is vague, trivially short, or only links elsewhere | `remove`, or `patch` to cut it down to the preference it does carry |
+| `low_value` | 5 | the model: the skill's `adds` is "Nothing" (it repeats general knowledge of a tool or product, or is vague, trivially short, or only links elsewhere), action `remove`; or its preference is buried in general text, action `patch` to cut the skill down to that preference |
 | `invalid_frontmatter` | 5 | the inventory: the SKILL.md front matter is not valid YAML, so a runtime may skip the skill | `patch` |
 
 ## Markdown report structure
@@ -154,9 +154,16 @@ always needs a decision.
 products work. A skill is useful when it records what the model cannot know:
 the team's preferred behaviour, a business workflow, a methodology, a house
 rule, a chosen default. A skill is unuseful when nothing of that kind remains
-after every sentence a capable model would follow unprompted is removed. A
-skill that mixes both is useful but gets a `patch` recommendation to cut the
-general part.
+after every sentence a capable model would follow unprompted is removed; its
+finding is `low_value` with a `remove` action. A skill that mixes both is also
+filed as `low_value`, with a `patch` action to cut the general part and the
+confidence word `likely`. Skills whose front matter does not parse appear in
+this section too, as `invalid_frontmatter`, because a runtime may skip them.
+
+The renderer checks the two against each other: a skill whose `adds` is
+"Nothing" without a `low_value` finding, or a `low_value` finding with a
+`remove` action on a skill whose `adds` names a preference, produces a
+warning.
 
 ### 7. What we looked at
 
