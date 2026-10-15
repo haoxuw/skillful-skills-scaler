@@ -290,6 +290,8 @@ def _grouped_actions(findings: list[dict]) -> list[str]:
         parts = [VERBS.get(a.get("verb", "none"), a.get("verb"))]
         if a.get("from"):
             parts.append(", ".join(a["from"]) if isinstance(a["from"], list) else str(a["from"]))
+        elif fs[0].get("skills"):
+            parts.append(", ".join(fs[0]["skills"]))     # the action is about the finding's own skills
         if a.get("into"):
             parts.append(f"into {a['into']}")
         details = sorted({x["proposed_action"].get("detail") for x in fs if x["proposed_action"].get("detail")})
