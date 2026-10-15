@@ -64,17 +64,40 @@ def _subject(f: dict) -> str:
     return ""
 
 
+DESTRUCTIVE = {"remove", "move", "rename", "merge"}
+
+
+def _from_list(v) -> list[str]:
+    if isinstance(v, list):
+        return sorted(str(x) for x in v if x)
+    return [str(v)] if v else []
+
+
+def _canonical_action(f: dict) -> dict:
+    """One shape for proposed_action: verb, sorted `from`, `into`, `detail`.
+    With no `from`, a non-destructive action (patch, update, fix_link, import)
+    is about the finding's own skills. A destructive action on a multi-skill
+    finding cannot guess which skill it targets, so it is marked unresolved."""
+    pa = f.get("proposed_action") or {}
+    verb = pa.get("verb") or "none"
+    frm = _from_list(pa.get("from"))
+    skills = sorted(f.get("skills") or [])
+    out = {"verb": verb, "from": frm, "into": pa.get("into", "") or "", "detail": pa.get("detail", "") or ""}
+    if verb != "none" and not frm:
+        if verb in DESTRUCTIVE and len(skills) > 1:
+            out["target_unresolved"] = True
+        else:
+            out["from"] = skills
+    return out
+
+
 def _action_key(f: dict) -> tuple:
     """Two findings share an action only when verb, target and destination all
-    match. An action with no named target is about the finding's own skills."""
-    a = f.get("proposed_action") or {}
-    frm = a.get("from")
-    frm = tuple(frm) if isinstance(frm, list) else (str(frm),) if frm else ()
-    if not frm:
-        frm = tuple(sorted(f.get("skills", [])))
-    if a.get("verb", "none") == "none":
-        return ("none", (f.get("id"),), "")       # no action: never grouped
-    return (a.get("verb", "none"), frm, a.get("into", ""))
+    match. Findings with no action, or an unresolved target, are never grouped."""
+    a = f["proposed_action"]
+    if a["verb"] == "none" or a.get("target_unresolved") or not a["from"]:
+        return (a["verb"], (f.get("id"),), a["into"])
+    return (a["verb"], tuple(a["from"]), a["into"])
 
 
 def normalize(data: dict) -> dict:
@@ -86,8 +109,9 @@ def normalize(data: dict) -> dict:
         f["id"] = f.get("id") or finding_id(f.get("type", "f"), f["skills"], _subject(f))
         f.setdefault("confidence", "unsure")
         f.setdefault("options", CONFLICT_OPTIONS if f.get("type") == "conflict" else [])
-        action = f.setdefault("proposed_action", {"verb": "none"})
-        needs = f.get("type") == "conflict" or f["confidence"] == "unsure" or action.get("verb") == "remove"
+        action = f["proposed_action"] = _canonical_action(f)
+        needs = (f.get("type") == "conflict" or f["confidence"] == "unsure" or action["verb"] == "remove"
+                 or action.get("target_unresolved", False))
         f["decision_needed"] = bool(f.get("decision_needed", False) or needs)
         if not f["evidence"]:
             f.setdefault("_warnings", []).append("finding has no evidence")
@@ -287,12 +311,12 @@ def _grouped_actions(findings: list[dict]) -> list[str]:
     lines = []
     for key, fs in groups.items():
         a = fs[0]["proposed_action"]
-        parts = [VERBS.get(a.get("verb", "none"), a.get("verb"))]
-        if a.get("from"):
-            parts.append(", ".join(a["from"]) if isinstance(a["from"], list) else str(a["from"]))
-        elif fs[0].get("skills"):
-            parts.append(", ".join(fs[0]["skills"]))     # the action is about the finding's own skills
-        if a.get("into"):
+        parts = [VERBS.get(a["verb"], a["verb"])]
+        if a.get("target_unresolved"):
+            parts.append(f"one of {', '.join(sorted(fs[0].get('skills', [])))} (which one is not named; decide)")
+        elif a["from"]:
+            parts.append(", ".join(a["from"]))
+        if a["into"]:
             parts.append(f"into {a['into']}")
         details = sorted({x["proposed_action"].get("detail") for x in fs if x["proposed_action"].get("detail")})
         if details:
