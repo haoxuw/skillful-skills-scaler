@@ -45,8 +45,11 @@ def key(a: str, b: str) -> str:
     return f"{a}|{b}"
 
 
+SCHEMA = 3   # 1: name keys, 12-hex body hashes; 2: 12-hex body-hash keys; 3: full folder-content hashes
+
+
 def empty() -> dict:
-    return {"schema_version": 2, "skills": {}, "pairs": {}}
+    return {"schema_version": SCHEMA, "skills": {}, "pairs": {}}
 
 
 def _migrate_v1(data: dict, inv: dict | None) -> dict:
@@ -69,6 +72,24 @@ def _migrate_v1(data: dict, inv: dict | None) -> dict:
     return out
 
 
+def _migrate_v2(data: dict, inv: dict | None) -> dict:
+    """v2 keyed by the 12-hex body hash. Map to today's folder-content hashes
+    through the live inventory's legacy hashes; unmatched records are dropped."""
+    out = empty()
+    if not inv:
+        return out
+    legacy_to_new = {s["legacy_sha"]: s["content_sha"] for s in inv["skills"] if s.get("legacy_sha")}
+    for h, rec in (data.get("skills") or {}).items():
+        new = legacy_to_new.get(h)
+        if new and rec.get("summary"):
+            out["skills"][new] = {"summary": rec["summary"], "last_id": rec.get("last_id", "")}
+    for k, rec in (data.get("pairs") or {}).items():
+        shas = [legacy_to_new.get(x) for x in k.split("|", 1)]
+        if len(shas) == 2 and all(shas) and rec.get("stars") is not None:
+            out["pairs"][key(*shas)] = {"stars": rec["stars"], "reason": rec.get("reason", ""), "last_ids": rec.get("last_ids", [])}
+    return out
+
+
 def load(path: Path, inv: dict | None = None) -> dict:
     if not path.exists():
         return empty()
@@ -79,6 +100,9 @@ def load(path: Path, inv: dict | None = None) -> dict:
         version = 1
     if version < 2:
         data = _migrate_v1(data, inv)
+    elif version < 3:
+        data = _migrate_v2(data, inv)
+    data.setdefault("schema_version", SCHEMA)
     data.setdefault("skills", {})
     data.setdefault("pairs", {})
     return data

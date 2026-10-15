@@ -315,6 +315,12 @@ def test_matrix(source: Path, target: Path):
                                "pairs": {"green-salad|omelette": {"stars": 3, "reason": "", "scored_with": sorted([legacy["green-salad"], legacy["omelette"]])}}}))
     rc, pend = run(target, "matrix", "pending")
     assert rc == 0 and pend["scores_needed"] == [] and pend["summaries_needed"] == [], pend
+    # a v2 file (12-hex body-hash keys) migrates the same way
+    mp.write_text(json.dumps({"schema_version": 2,
+                               "skills": {legacy["green-salad"]: {"summary": "s", "last_id": "green-salad"}, legacy["omelette"]: {"summary": "o", "last_id": "omelette"}},
+                               "pairs": {"|".join(sorted([legacy["green-salad"], legacy["omelette"]])): {"stars": 3, "reason": "", "last_ids": ["green-salad", "omelette"]}}}))
+    rc, pend = run(target, "matrix", "pending")
+    assert rc == 0 and pend["scores_needed"] == [] and pend["summaries_needed"] == [], pend
     # front matter with YAML 1.1 keys (`on:`) and junk files do not disturb the identity
     sk = target / ".agents" / "skills" / "omelette"
     before = next(x["content_sha"] for x in inv["skills"] if x["id"] == "omelette")
