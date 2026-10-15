@@ -65,9 +65,15 @@ def _subject(f: dict) -> str:
 
 
 def _action_key(f: dict) -> tuple:
-    a = f["proposed_action"]
+    """Two findings share an action only when verb, target and destination all
+    match. An action with no named target is about the finding's own skills."""
+    a = f.get("proposed_action") or {}
     frm = a.get("from")
     frm = tuple(frm) if isinstance(frm, list) else (str(frm),) if frm else ()
+    if not frm:
+        frm = tuple(sorted(f.get("skills", [])))
+    if a.get("verb", "none") == "none":
+        return ("none", (f.get("id"),), "")       # no action: never grouped
     return (a.get("verb", "none"), frm, a.get("into", ""))
 
 
@@ -92,8 +98,7 @@ def normalize(data: dict) -> dict:
         "sources": len({s.get("source", "local") for s in inv}),
         **counts,
         "actions_proposed": len({_action_key(f) for f in findings if f["proposed_action"].get("verb", "none") != "none"}),
-        "decisions_needed": len({_action_key(f) if f["proposed_action"].get("verb", "none") != "none" else ("none", (f["id"],), "")
-                                 for f in findings if f["decision_needed"]}),
+        "decisions_needed": len({_action_key(f) for f in findings if f["decision_needed"]}),
         "findings_total": len(findings),
     }
     return data

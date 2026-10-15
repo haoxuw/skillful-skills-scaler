@@ -516,4 +516,9 @@ def test_report_render(tmp_path: Path):
     assert any("a: adds 'Nothing' but no low_value" in x for x in w) and any("c: no 'adds' line" in x for x in w) and any("c: no goal" in x for x in w)
     back["findings"].append({"type": "low_value", "skills": ["b"], "evidence": [{"skill": "b", "quote": "x"}], "proposed_action": {"verb": "remove"}})
     assert any("b: low_value with a remove action" in x for x in warnings_for(back))
+    # actions without a named target are grouped by the finding's own skills, never all together
+    from sss.report import normalize
+    many = {"inventory": [], "findings": [{"type": "out_of_date", "skills": [f"s{i}"], "evidence": [{"quote": "q"}], "confidence": "unsure",
+                                           "proposed_action": {"verb": "patch"}} for i in range(5)]}
+    assert normalize(many)["summary"]["decisions_needed"] == 5
     assert "### a" in md and "duplicate with b [dup-" in md and "- **Concerns:** none" not in md.split("### a")[1].split("### b")[0]
