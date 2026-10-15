@@ -1370,6 +1370,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "remove",
+        "from": [
+          "review-security-k8s-agents-prompt-injection"
+        ],
+        "into": "",
         "detail": "Delete .agents/skills/review-security-k8s-agents-prompt-injection/ and remove the `review-security-k8s-agents-prompt-injection` line from review-security-k8s-agents-main; optionally carry the Guardrails bullet into review-security-k8s-agents-credentials."
       },
       "skills": [
@@ -1401,6 +1405,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "review-security-k8s-rbac"
+        ],
+        "into": "",
         "detail": "Delete resources/gke-rbac.md or reduce it to the checklist summary; change section 5 of SKILL.md to cite the GKE RBAC best-practices URL instead of the local copy."
       },
       "skills": [
@@ -1438,6 +1446,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-observability (agents/cluster/skills/gke-observability)"
+        ],
+        "into": "",
         "detail": "Replace 'For Standard clusters, you can enable' with 'You can enable' on line 96 and remove '(if using Standard)' on line 118."
       },
       "skills": [
@@ -1493,6 +1505,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-observability (agents/cluster/skills/gke-observability)"
+        ],
+        "into": "",
         "detail": "Keep lines 10, 14-37 (fix the format filter on line 21 to include loggingService,monitoringService), 94-111; remove lines 39-93 and 113-118."
       },
       "skills": [
@@ -1536,6 +1552,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-reliability (agents/cluster/skills/gke-reliability)"
+        ],
+        "into": "",
         "detail": "Keep lines 10, 16-25 (regional check), 34 (pdb list), 62 (probe grep), 86-92 (Config Connector maintenance window) and 94-100 (Best Practices as the audit criteria); remove lines 29, 37-49, 53-57, 67, 71-84 (definitions and generic manifests)."
       },
       "skills": [
@@ -1573,6 +1593,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "remove",
+        "from": [
+          "gke-storage (agents/cluster/skills/gke-storage)"
+        ],
+        "into": "",
         "detail": "Delete agents/cluster/skills/gke-storage; if storage-binding diagnosis is wanted on the Cluster Agent, write a diagnostic skill in its place rather than keeping this configuration guide."
       },
       "skills": [
@@ -1610,6 +1634,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "remove",
+        "from": [
+          "gke-storage (agents/cluster/skills/gke-storage)"
+        ],
+        "into": "",
         "detail": "Remove from agents/cluster/skills; the Platform Agent's mirrored gke-storage covers configuration."
       },
       "skills": [
@@ -1635,6 +1663,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-storage (agents/cluster/skills/gke-storage)"
+        ],
+        "into": "",
         "detail": "Replace `standard-rwm` with `standard-rwx` on line 55, or remove the file per the other findings."
       },
       "skills": [
@@ -1678,6 +1710,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-scaling (agents/cluster/skills/gke-workload-scaling)"
+        ],
+        "into": "",
         "detail": "Keep lines 1-10 (frontmatter and the read-only rule), the single 'Propose ...' sentence from each of sections 1-4 with the asset links, and best practice 2 (HPA on CPU, VPA on memory); remove the explanatory prose for HPA, VPA, update modes, Cluster Autoscaler and best practices 1, 3, 4, 5."
       },
       "skills": [
@@ -1715,6 +1751,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-workload-security (agents/cluster/skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "In SKILL.md section 2 (lines 35-72), make direct KSA principal binding the proposed default, label GSA impersonation via iam.gke.io/gcp-service-account as legacy, and keep the assets/workload-identity-pod.yaml example (its nodeSelector is still valid)."
       },
       "skills": [
@@ -1752,6 +1792,10 @@
       "confidence": "unsure",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-security (agents/cluster/skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "Trim sections 4 and 5's node-pool/cluster field proposals (lines 129-142) to a pointer to gke-platform-security on the Platform Agent; leave section 3's dataplane check and Calico ordering only if the owner confirms the Cluster Agent should propose control-plane changes."
       },
       "skills": [
@@ -1801,6 +1845,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "fleet-audit"
+        ],
+        "into": "",
         "detail": "Edit lines 3-26 of scripts/audit_report.py: add `grep` and `draft` usage lines, change 'three on-demand commands' to 'five', replace the six-stream parenthetical with 'every stream registered in AUDITS (nine today)', and generalise 'GitHub **issue**' to the forge."
       },
       "skills": [
@@ -1838,6 +1886,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "fleet-upgrade-verification"
+        ],
+        "into": "",
         "detail": "Trim SKILL.md lines 189-259 (PDB and webhook bullets) to the rule name, the verdict it produces and a pointer to the script constants and design doc; leave the rest of the file as is."
       },
       "skills": [
@@ -1869,7 +1921,10 @@
       "confidence": "unsure",
       "proposed_action": {
         "verb": "move",
-        "detail": "Add the skill to agents/cluster/skills (keeping the platform mirror only if the Platform Agent needs it) so the Cluster Agent can load it for a disruption on its cluster."
+        "from": [],
+        "into": "",
+        "detail": "Add the skill to agents/cluster/skills (keeping the platform mirror only if the Platform Agent needs it) so the Cluster Agent can load it for a disruption on its cluster.",
+        "target_unresolved": true
       },
       "skills": [
         "gke-ai-troubleshooting-handle-disruption-gpu-tpu (agents/platform/skills/gke-ai-troubleshooting-handle-disruption-gpu-tpu)",
@@ -1901,7 +1956,10 @@
       "confidence": "unsure",
       "proposed_action": {
         "verb": "move",
-        "detail": "Add the skill to agents/cluster/skills (keeping the platform mirror only if the Platform Agent needs it)."
+        "from": [],
+        "into": "",
+        "detail": "Add the skill to agents/cluster/skills (keeping the platform mirror only if the Platform Agent needs it).",
+        "target_unresolved": true
       },
       "skills": [
         "gke-ai-troubleshooting-jobset-interruption (agents/platform/skills/gke-ai-troubleshooting-jobset-interruption)",
@@ -1933,7 +1991,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "move",
-        "detail": "Relocate (or additionally mirror) the skill under agents/cluster/skills/ where read-only single-cluster debugging lives; keep the Platform Agent copy only if the Cluster Agent lacks Cloud Logging access for serial-console logs."
+        "from": [],
+        "into": "",
+        "detail": "Relocate (or additionally mirror) the skill under agents/cluster/skills/ where read-only single-cluster debugging lives; keep the Platform Agent copy only if the Cluster Agent lacks Cloud Logging access for serial-console logs.",
+        "target_unresolved": true
       },
       "skills": [
         "gke-ai-troubleshooting-tpu-vbar-oom (agents/platform/skills/gke-ai-troubleshooting-tpu-vbar-oom)",
@@ -1971,6 +2032,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-app-onboarding (agents/platform/skills/gke-app-onboarding)"
+        ],
+        "into": "",
         "detail": "Via the overlay in agents/platform/skill-overlays/gke-app-onboarding/: keep sections 1, 4 (checklist), 5 and Next Steps; remove sections 2-3 and the unreferenced assets/ sample (or change its Service to ClusterIP + Gateway)."
       },
       "skills": [
@@ -2014,6 +2079,11 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-app-onboarding (agents/platform/skills/gke-app-onboarding)",
+          "gke-app-onboarding (third_party/google-skills/gke-app-onboarding)"
+        ],
+        "into": "",
         "detail": "Change the image placeholder in assets/deployment.yaml to us-docker.pkg.dev/<PROJECT>/<REPO>/node-app@sha256:... via the overlay patch."
       },
       "skills": [
@@ -2046,6 +2116,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-basics (agents/platform/skills/gke-basics)"
+        ],
+        "into": "",
         "detail": "Edit references/core-concepts.md Pricing section via the overlay: remove 'No cluster management fee.' and say both modes pay the per-cluster fee after the free tier."
       },
       "skills": [
@@ -2083,6 +2157,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-basics (agents/platform/skills/gke-basics)"
+        ],
+        "into": "",
         "detail": "Via agents/platform/skill-overlays/gke-basics/: remove references/client-library-usage.md and references/iac-usage.md and their Reference Directory entries; trim core-concepts.md to the golden-path defaults."
       },
       "skills": [
@@ -2114,6 +2192,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-batch-hpc (agents/platform/skills/gke-batch-hpc)"
+        ],
+        "into": "",
         "detail": "Add an overlay patch under agents/platform/skill-overlays/gke-batch-hpc/ that removes the Job/JobSet/Kueue/MPIJob manifests and the compact-placement command, keeping the rules and the appended capacity-obtainability section."
       },
       "skills": [
@@ -2145,6 +2227,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-batch-hpc (agents/platform/skills/gke-batch-hpc)"
+        ],
+        "into": "",
         "detail": "Change the Best Practices bullet to 'Use the MPI Operator (MPIJob v2beta1)' and pin the install URL to a tagged release via the overlay."
       },
       "skills": [
@@ -2176,6 +2262,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-cluster-creation (agents/platform/skills/gke-cluster-creation)"
+        ],
+        "into": "",
         "detail": "Via agents/platform/skill-overlays/gke-cluster-creation/: fix the sentence on line 186 (and the matching note in the HA best practice) to state per-zone semantics, or set --num-nodes 1 / initialNodeCount 1."
       },
       "skills": [
@@ -2213,6 +2303,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-cost-optimization (agents/platform/skills/gke-cost-optimization)",
+          "gke-cost-optimization (third_party/google-skills/gke-cost-optimization)"
+        ],
+        "into": "",
         "detail": "Overlay patch that removes sections 5 (Machine Type Selection), 6 (CUDs) and 7 (Cluster Management) and the duplicated Best Practices Summary, keeping the rules tables, Spot guidance and dev/test deviations."
       },
       "skills": [
@@ -2251,6 +2346,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-inference (agents/platform/skills/gke-inference)",
+          "gke-inference (third_party/google-skills/gke-inference)"
+        ],
+        "into": "",
         "detail": "Overlay patch removing the Accelerator Selection Guide, Optimization Tips and Troubleshooting sections; keep Workflow, GPU ComputeClass and Autoscaling LLM Inference."
       },
       "skills": [
@@ -2301,6 +2401,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-manifest-generation (agents/platform/skills/gke-manifest-generation)",
+          "gke-manifest-generation (third_party/google-skills/gke-manifest-generation)"
+        ],
+        "into": "",
         "detail": "Overlay patch correcting the Autopilot requests/limits sentence at SKILL.md lines 35-37 to the current behaviour (limits lowered to requests; bursting keeps higher limits)."
       },
       "skills": [
@@ -2339,6 +2444,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-multitenancy (agents/platform/skills/gke-multitenancy)",
+          "gke-multitenancy (third_party/google-skills/gke-multitenancy)"
+        ],
+        "into": "",
         "detail": "Overlay patch that trims the generic namespace/RBAC/quota/NetworkPolicy manifests to the rules the team adds (default model, Google Groups subjects, LimitRange defaults, cost-center labels)."
       },
       "skills": [
@@ -2377,6 +2487,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-networking (agents/platform/skills/gke-networking)"
+        ],
+        "into": "",
         "detail": "Overlay patch removing the VPC-Native Mode Benefits, IP Planning and Egress sections; keep defaults table, access patterns, Day-0 warning and the appended dns-endpoint check."
       },
       "skills": [
@@ -2414,6 +2528,11 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-observability (agents/platform/skills/gke-observability)",
+          "gke-observability (third_party/google-skills/gke-observability)"
+        ],
+        "into": "",
         "detail": "Overlay patch replacing `--enable-dataplane-v2-flow-observability` with `--enable-dataplane-v2-metrics` in the Enabling Full Monitoring block."
       },
       "skills": [
@@ -2452,6 +2571,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-observability (agents/platform/skills/gke-observability)",
+          "gke-observability (third_party/google-skills/gke-observability)"
+        ],
+        "into": "",
         "detail": "Overlay patch trimming the generic metrics, logging, cost and LQL sections; keep defaults, enable commands and the alerting/production rules."
       },
       "skills": [
@@ -2502,6 +2626,11 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-platform-security (agents/platform/skills/gke-platform-security)",
+          "gke-platform-security (third_party/google-skills/gke-platform-security)"
+        ],
+        "into": "",
         "detail": "Overlay patch replacing the `--enable-gke-sandbox` cluster update with the `node-pools create --sandbox type=gvisor` command and the Autopilot note."
       },
       "skills": [
@@ -2540,6 +2669,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-platform-security (agents/platform/skills/gke-platform-security)"
+        ],
+        "into": "",
         "detail": "Overlay patch removing the Common IAM Roles table and the Cross-Service Authentication Patterns block (which also closes the unterminated code fence that swallows the Resources list)."
       },
       "skills": [
@@ -2571,6 +2704,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-reliability (agents/platform/skills/gke-reliability)",
+          "gke-reliability (third_party/google-skills/gke-reliability)"
+        ],
+        "into": "",
         "detail": "Via an overlay patch in agents/platform/skill-overlays/gke-reliability/: cut the explanatory prose and 'check existing' blocks in workflows 2-5, keep the golden-path table, the recommended probe YAML values, the Replicas table and the Best Practices list."
       },
       "skills": [
@@ -2603,6 +2741,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-service-networking (agents/platform/skills/gke-service-networking)",
+          "gke-service-networking (third_party/google-skills/gke-service-networking)"
+        ],
+        "into": "",
         "detail": "Via an overlay patch in agents/platform/skill-overlays/gke-service-networking/: reduce to the defaults (Gateway API with gke-l7-global-external-managed, Cloud Armor on every public endpoint, managed certs, NEGs) plus the BackendConfig annotation, and remove the template manifests."
       },
       "skills": [
@@ -2629,6 +2772,11 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-storage (agents/platform/skills/gke-storage)",
+          "gke-storage (third_party/google-skills/gke-storage)"
+        ],
+        "into": "",
         "detail": "Overlay patch: standard-rwo row -> `pd-balanced`, 'General purpose (GKE default)'; add a note that pd-standard requires a custom StorageClass."
       },
       "skills": [
@@ -2661,6 +2809,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-storage (agents/platform/skills/gke-storage)",
+          "gke-storage (third_party/google-skills/gke-storage)"
+        ],
+        "into": "",
         "detail": "Overlay patch: remove the Block/Shared PVC examples and the Volume Expansion prose, keep the GCS FUSE Workload Identity note, the fast-regional StorageClass and the Best Practices list."
       },
       "skills": [
@@ -2693,6 +2846,11 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-tpu-dynamic-slices-monitoring (agents/platform/skills/gke-tpu-dynamic-slices-monitoring)",
+          "gke-tpu-dynamic-slices-monitoring (third_party/google-skills/gke-tpu-dynamic-slices-monitoring)"
+        ],
+        "into": "",
         "detail": "Remove scripts/validate_queries.sh from agents/platform/skills/gke-tpu-dynamic-slices-monitoring via the overlay; nothing in SKILL.md calls it."
       },
       "skills": [
@@ -2731,6 +2889,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-upgrades (agents/platform/skills/gke-upgrades)"
+        ],
+        "into": "",
         "detail": "Overlay patch under agents/platform/skill-overlays/gke-upgrades/ swapping `apiserver_request_total | grep deprecated` for `apiserver_requested_deprecated_apis` in SKILL.md:167, references/checklists.md:14, references/runbook-template.md:25; record with make skills-refresh."
       },
       "skills": [
@@ -2768,6 +2930,11 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-workload-scaling (agents/platform/skills/gke-workload-scaling)",
+          "gke-workload-scaling (third_party/google-skills/gke-workload-scaling)"
+        ],
+        "into": "",
         "detail": "Overlay patch on lines 62-67: replace 'natively supported by the GKE control plane without requiring the Custom Metrics Adapter' with the adapter prerequisite."
       },
       "skills": [
@@ -2806,6 +2973,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "workload-rebalancing"
+        ],
+        "into": "",
         "detail": "Edit lines 8, 22 and 54 of agents/platform/skills/workload-rebalancing/SKILL.md to name the GitOps reconciler as the actor that applies the merged PR, matching docs/site/src/content/docs/deploy/gitops-argocd.md and agents/platform/skills/gcp-config-connector/SKILL.md."
       },
       "skills": [
@@ -2843,6 +3014,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-platform-security (third_party/google-skills/gke-platform-security)"
+        ],
+        "into": "",
         "detail": "Change the Workload Identity pointer at lines 23-25 and 164-166 to gke-workload-identity; report upstream."
       },
       "skills": [
@@ -2874,6 +3049,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-productionize (third_party/google-skills/gke-productionize)"
+        ],
+        "into": "",
         "detail": "Rewrite lines 98-100 to route Workload Identity to gke-workload-identity; report upstream."
       },
       "skills": [
@@ -2905,6 +3084,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-productionize (third_party/google-skills/gke-productionize)"
+        ],
+        "into": "",
         "detail": "Fix the skill name in the description on line 5."
       },
       "skills": [
@@ -2942,6 +3125,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-upgrades (third_party/google-skills/gke-upgrades)"
+        ],
+        "into": "",
         "detail": "Replace the node-pools upgrade command at troubleshooting.md lines 191-194 with clusters upgrade --node-pool; report upstream."
       },
       "skills": [
@@ -2985,6 +3172,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-identity (third_party/google-skills/gke-workload-identity)"
+        ],
+        "into": "",
         "detail": "Align description and body: add a direct-binding setup section or drop 'Configures' and 'Use when setting up KSA/GSA bindings' from the description."
       },
       "skills": [
@@ -3022,6 +3213,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-workload-security (third_party/google-skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "Mark section 2 (lines 53-91) as legacy impersonation and route direct binding to gke-workload-identity; report upstream."
       },
       "skills": [
@@ -3059,6 +3254,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-workload-security (third_party/google-skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "Make the Network Policy enablement a dataplane check plus two-step command sequence at lines 98-107; report upstream."
       },
       "skills": [
@@ -3090,6 +3289,10 @@
       "confidence": "likely",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-workload-security (third_party/google-skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "Replace the --enable-gke-sandbox reference at lines 120-123 with the node-pool --sandbox type=gvisor prerequisite."
       },
       "skills": [
@@ -3121,6 +3324,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "update",
+        "from": [
+          "gke-workload-troubleshooting (third_party/google-skills/gke-workload-troubleshooting)"
+        ],
+        "into": "",
         "detail": "Replace the two kubectl get endpoints references (lines 186 and 211) with the EndpointSlice query."
       },
       "skills": [
@@ -3155,7 +3362,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-643247",
       "options": [],
@@ -3185,7 +3395,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-09f37b",
       "options": [],
@@ -3215,7 +3428,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-b868a4",
       "options": [],
@@ -3245,7 +3461,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-6612b2",
       "options": [],
@@ -3275,7 +3494,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-1f9b50",
       "options": [],
@@ -3305,7 +3527,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-648d40",
       "options": [],
@@ -3335,7 +3560,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-45c55e",
       "options": [],
@@ -3365,7 +3593,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-1e7056",
       "options": [],
@@ -3395,7 +3626,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-25acb5",
       "options": [],
@@ -3425,7 +3659,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-81b83e",
       "options": [],
@@ -3455,7 +3692,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-b69159",
       "options": [],
@@ -3485,7 +3725,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-7e054c",
       "options": [],
@@ -3515,7 +3758,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-210197",
       "options": [],
@@ -3545,7 +3791,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-01b7c5",
       "options": [],
@@ -3575,7 +3824,10 @@
       "recommendation": "Keep both as they are. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-8d741a",
       "options": [],
@@ -3599,6 +3851,10 @@
       "confidence": "confident",
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "fleet-audit-reports"
+        ],
+        "into": "",
         "detail": "Quote the description value in agents/platform/skills/fleet-audit-reports/SKILL.md front matter."
       },
       "id": "fm-43438a",
@@ -3638,6 +3894,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-b0e7b5"
@@ -3693,6 +3951,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-37aa78"
@@ -3730,6 +3990,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-d72b76"
@@ -3797,6 +4059,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-aecc4e"
@@ -3840,6 +4104,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-1e0e2d"
@@ -3889,6 +4155,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-6bb808"
@@ -3980,6 +4248,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-cb96e1"
@@ -4047,6 +4317,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-baafb0"
@@ -4102,6 +4374,8 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "none",
+        "from": [],
+        "into": "",
         "detail": "Report upstream; no local file change."
       },
       "id": "conf-f492c5"
@@ -4146,6 +4420,12 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-security (agents/cluster/skills/gke-workload-security)",
+          "gke-workload-security (agents/platform/skills/gke-workload-security)",
+          "gke-workload-security (third_party/google-skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "Rewrite section 2 of the cluster copy to match the platform copy."
       },
       "id": "conf-4a9226"
@@ -4196,6 +4476,12 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-security (agents/cluster/skills/gke-workload-security)",
+          "gke-workload-security (agents/platform/skills/gke-workload-security)",
+          "gke-workload-security (third_party/google-skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "No local change; report upstream."
       },
       "id": "conf-b5e384"
@@ -4240,6 +4526,12 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-security (agents/cluster/skills/gke-workload-security)",
+          "gke-workload-security (agents/platform/skills/gke-workload-security)",
+          "gke-workload-security (third_party/google-skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "Overlay patch on gke-workload-security line 153; also gke-platform-security line 118 (see the out-of-date finding)."
       },
       "id": "conf-e46fb2"
@@ -4284,6 +4576,12 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-troubleshooting (agents/cluster/skills/gke-workload-troubleshooting)",
+          "gke-workload-troubleshooting (agents/platform/skills/gke-workload-troubleshooting)",
+          "gke-workload-troubleshooting (third_party/google-skills/gke-workload-troubleshooting)"
+        ],
+        "into": "",
         "detail": "Overlay patch on gke-workload-troubleshooting step 0."
       },
       "id": "conf-cb2e3b"
@@ -4328,6 +4626,12 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-troubleshooting (agents/cluster/skills/gke-workload-troubleshooting)",
+          "gke-workload-troubleshooting (agents/platform/skills/gke-workload-troubleshooting)",
+          "gke-workload-troubleshooting (third_party/google-skills/gke-workload-troubleshooting)"
+        ],
+        "into": "",
         "detail": "No local change; report upstream."
       },
       "id": "conf-fad338"
@@ -4371,6 +4675,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-troubleshooting (agents/platform/skills/gke-workload-troubleshooting)",
+          "gke-workload-troubleshooting (third_party/google-skills/gke-workload-troubleshooting)"
+        ],
+        "into": "",
         "detail": "No local change; report upstream."
       },
       "id": "conf-e9fbf7"
@@ -4408,6 +4717,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-observability (agents/cluster/skills/gke-observability)",
+          "gke-observability (agents/platform/skills/gke-observability)"
+        ],
+        "into": "",
         "detail": "Patch the cluster copy."
       },
       "id": "conf-0feb2d"
@@ -4445,6 +4759,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-observability (agents/cluster/skills/gke-observability)",
+          "gke-observability (agents/platform/skills/gke-observability)"
+        ],
+        "into": "",
         "detail": "Patch the cluster copy."
       },
       "id": "conf-9a2485"
@@ -4482,6 +4801,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-reliability (agents/cluster/skills/gke-reliability)",
+          "gke-reliability (agents/platform/skills/gke-reliability)"
+        ],
+        "into": "",
         "detail": "Patch the cluster copy."
       },
       "id": "conf-e64b5d"
@@ -4519,6 +4843,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-reliability (agents/cluster/skills/gke-reliability)",
+          "gke-reliability (agents/platform/skills/gke-reliability)"
+        ],
+        "into": "",
         "detail": "Patch the cluster copy."
       },
       "id": "conf-a22a9b"
@@ -4556,6 +4885,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-storage (agents/cluster/skills/gke-storage)",
+          "gke-storage (agents/platform/skills/gke-storage)"
+        ],
+        "into": "",
         "detail": "Remove agents/cluster/skills/gke-storage."
       },
       "id": "conf-dd74e6"
@@ -4593,6 +4927,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-storage (agents/cluster/skills/gke-storage)",
+          "gke-storage (agents/platform/skills/gke-storage)"
+        ],
+        "into": "",
         "detail": "Remove agents/cluster/skills/gke-storage."
       },
       "id": "conf-8c70b6"
@@ -4636,6 +4975,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "capacity-obtainability",
+          "gke-stockout-investigator"
+        ],
+        "into": "",
         "detail": "Edit agentplugins/gke-stockout-investigator/files/skills/gke-stockout-investigator/SKILL.md line 159."
       },
       "id": "conf-937bf6"
@@ -4673,6 +5017,11 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "review-security-k8s-agents-firewall",
+          "review-security-k8s-network"
+        ],
+        "into": "",
         "detail": "Align the NodePort bullet in review-security-k8s-network with review-security-k8s-agents-firewall, or the reverse."
       },
       "id": "conf-bbee9a"
@@ -4701,7 +5050,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-c57a03",
       "options": [],
@@ -4731,7 +5083,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-0ce17e",
       "options": [],
@@ -4761,7 +5116,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-57ee22",
       "options": [],
@@ -4791,7 +5149,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-b7c478",
       "options": [],
@@ -4821,7 +5182,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-13c04c",
       "options": [],
@@ -4851,7 +5215,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-05949d",
       "options": [],
@@ -4881,7 +5248,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-b1dca1",
       "options": [],
@@ -4911,7 +5281,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-823681",
       "options": [],
@@ -4941,7 +5314,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-abe210",
       "options": [],
@@ -4980,6 +5356,12 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-observability (agents/cluster/skills/gke-observability)",
+          "gke-observability (agents/platform/skills/gke-observability)",
+          "gke-observability (third_party/google-skills/gke-observability)"
+        ],
+        "into": "",
         "detail": "Reconcile the cluster copy against the platform copy."
       },
       "id": "dup-ed076d",
@@ -5009,7 +5391,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-cb4e8f",
       "options": [],
@@ -5048,6 +5433,12 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-reliability (agents/cluster/skills/gke-reliability)",
+          "gke-reliability (agents/platform/skills/gke-reliability)",
+          "gke-reliability (third_party/google-skills/gke-reliability)"
+        ],
+        "into": "",
         "detail": "Reconcile the cluster copy against the platform copy."
       },
       "id": "dup-6ba2a7",
@@ -5087,7 +5478,9 @@
         "verb": "remove",
         "from": [
           "gke-storage (agents/cluster/skills/gke-storage)"
-        ]
+        ],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-cc232f",
       "options": [],
@@ -5117,7 +5510,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-74b14d",
       "options": [],
@@ -5147,7 +5543,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-50a096",
       "options": [],
@@ -5177,7 +5576,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-3f0ff2",
       "options": [],
@@ -5216,6 +5618,12 @@
       "decision_needed": true,
       "proposed_action": {
         "verb": "patch",
+        "from": [
+          "gke-workload-security (agents/cluster/skills/gke-workload-security)",
+          "gke-workload-security (agents/platform/skills/gke-workload-security)",
+          "gke-workload-security (third_party/google-skills/gke-workload-security)"
+        ],
+        "into": "",
         "detail": "Reconcile the cluster copy against the platform copy."
       },
       "id": "dup-b3b16d",
@@ -5245,7 +5653,10 @@
       "recommendation": "Keep both. The upstream mirror is the source of truth and the shipped copy is its generated output; edit only through an overlay (edit-mirrored-skill). No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-1cf49e",
       "options": [],
@@ -5275,7 +5686,10 @@
       "recommendation": "Keep both. review-security-k8s-main launches review-security-k8s-agents-main as one of its sub-skills, so the shared orchestration text is the protocol they agree on, not a copy to remove. No file change.",
       "confidence": "confident",
       "proposed_action": {
-        "verb": "none"
+        "verb": "none",
+        "from": [],
+        "into": "",
+        "detail": ""
       },
       "id": "dup-89a268",
       "options": [],
@@ -5295,8 +5709,8 @@
     "out_of_place": 5,
     "low_value": 20,
     "invalid_frontmatter": 1,
-    "actions_proposed": 5,
-    "decisions_needed": 13,
+    "actions_proposed": 56,
+    "decisions_needed": 38,
     "findings_total": 107
   }
 }
